@@ -146,3 +146,5 @@ All management evidence (Gantt charts, risk analysis, task delegation, and accep
   * [PEP 257 Docstring Conventions](https://peps.python.org/pep-0257/)
   * [The Pac-Man Dossier (Ghost AI behaviors)](https://pacman.holenet.info/)
 * **AI Usage:** * *ChatGPT / Claude:* Used for generating boilerplate code structure, reviewing Regex for the config parser, and generating this README documentation. All code was heavily refactored, peer-reviewed, and thoroughly tested to ensure complete comprehension.
+
+https://github.com/TG922/pacman-game-assets
