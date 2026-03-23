@@ -1,4 +1,4 @@
-PYTHON_CMD  := python3 pac-man.py config.json
+PYTHON_CMD  := python3 pac-man.py config.json dhi
 
 BOLD   := \033[1m
 RESET  := \033[0m

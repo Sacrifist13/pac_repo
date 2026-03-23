@@ -1,0 +1,16 @@
+{
+  # Nom du fichier pour sauvegarder les scores (Top 10) [cite: 131, 168]
+  "highscore_filename": "highscores.json",
+
+  # Configuration du gameplay [cite: 134, 141, 142]
+  "lives": 3,
+  "seed": 42,
+  "level_max_time": 90,
+
+  # Attribution des points [cite: 136, 137, 138]
+  "points_per_pacgum": 10,
+  "points_per_super_pacgum": 50,
+  "points_per_ghost": 200
+
+  # Liste des niveaux (au moins 10 niveaux requis) [cite: 132, 246]
+}
