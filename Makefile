@@ -1,4 +1,4 @@
-PYTHON_CMD  := python3 pac-man.py config.json dhi
+PYTHON_CMD  := python3 pac-man.py config.json
 
 BOLD   := \033[1m
 RESET  := \033[0m
@@ -24,7 +24,7 @@ debug:
 
 clean:
 	@echo "$(BOLD)🗑️  Cleaning up build artifacts and cache...$(RESET)"
-	rm -rf .mypy_cache __pycache__
+	rm -rf .mypy_cache __pycache__ src/__pycache__
 	@echo "\n$(BOLD)$(GREEN)🧹 Workspace is clean.$(RESET)"
 
 lint:
