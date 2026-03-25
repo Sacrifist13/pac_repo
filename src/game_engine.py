@@ -1,6 +1,7 @@
 import os
 import pygame
 import sys
+from mazegen import MazeGenerator
 from pygame.event import Event
 from enum import Enum, auto
 from typing import List, Dict, Any

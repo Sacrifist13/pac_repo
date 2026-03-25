@@ -5,7 +5,11 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "mazegen",
     "mypy>=1.19.1",
     "pydantic>=2.12.5",
-    "pygame>=2.6.1",
+    "pygame-ce>=2.5.6",
 ]
+
+[tool.uv.sources]
+mazegen = { path = "mazegen-1.0.0-py3-none-any.whl" }
