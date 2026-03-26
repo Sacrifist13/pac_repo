@@ -1,12 +1,13 @@
 import os
 import pygame
 import sys
-from mazegen import MazeGenerator
 from pygame.event import Event
 from enum import Enum, auto
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from pathlib import Path
 from .loader import Loader
+from .map_generator import MapGenerator
+from .entities import PacMan, Blinky, Clyde, Inky, Pinky, Directions
 
 
 class GameState(Enum):
@@ -16,6 +17,7 @@ class GameState(Enum):
     GAME_OVER = auto()
     SCORE = auto()
     INFO = auto()
+    STARTING_LEVEL = auto()
 
 
 class GameEngine:
@@ -26,6 +28,11 @@ class GameEngine:
     GRAY = (155, 155, 155)
     PACMAN_YELLOW = (255, 255, 0)
     NEON_BLUE = (33, 33, 255)
+
+    def __init__(self) -> None:
+        self.map_generator = MapGenerator()
+        self.map_elements: Dict[str, Any] = {}
+        self.countdown_play = False
 
     def _init(self) -> None:
         self.state = GameState.MENU
@@ -73,7 +80,7 @@ class GameEngine:
             },
             "text": {
                 "Start Game": [(0, 0), (0, 0), False],
-                "View HighScores": [(0, 0), (0, 0), False],
+                "View Highscores": [(0, 0), (0, 0), False],
                 "Instructions": [(0, 0), (0, 0), False],
                 "Exit": [(0, 0), (0, 0), False],
             },
@@ -88,6 +95,267 @@ class GameEngine:
         font_size = 40
         self.font_back = pygame.font.Font("assets/font/back.otf", font_size)
         self.font_front = pygame.font.Font("assets/font/front.otf", font_size)
+
+        self.font_back_countdown = pygame.font.Font(
+            "assets/font/back.otf", font_size * 3
+        )
+        self.font_front_countdown = pygame.font.Font(
+            "assets/font/front.otf", font_size * 3
+        )
+
+    def _init_game_img(self) -> None:
+        self.map_elements["pac_man"] = {
+            key: pygame.transform.scale(
+                img,
+                (
+                    self.map_elements["cell_size"] // 1.5,
+                    self.map_elements["cell_size"] // 1.5,
+                ),
+            )
+            for key, img in self.img.items()
+            if key.startswith("pac_")
+            if "gum" not in key
+        }
+
+        self.map_elements["blinky"] = {
+            key: pygame.transform.scale(
+                img,
+                (
+                    self.map_elements["cell_size"] // 2,
+                    self.map_elements["cell_size"] // 2,
+                ),
+            )
+            for key, img in self.img.items()
+            if key.startswith("blinky")
+        }
+
+        self.map_elements["clyde"] = {
+            key: pygame.transform.scale(
+                img,
+                (
+                    self.map_elements["cell_size"] // 2,
+                    self.map_elements["cell_size"] // 2,
+                ),
+            )
+            for key, img in self.img.items()
+            if key.startswith("clyde")
+        }
+
+        self.map_elements["inky"] = {
+            key: pygame.transform.scale(
+                img,
+                (
+                    self.map_elements["cell_size"] // 2,
+                    self.map_elements["cell_size"] // 2,
+                ),
+            )
+            for key, img in self.img.items()
+            if key.startswith("inky")
+        }
+
+        self.map_elements["pinky"] = {
+            key: pygame.transform.scale(
+                img,
+                (
+                    self.map_elements["cell_size"] // 2,
+                    self.map_elements["cell_size"] // 2,
+                ),
+            )
+            for key, img in self.img.items()
+            if key.startswith("pinky")
+        }
+
+        self.map_elements["pac_gum"] = pygame.transform.scale(
+            self.img["pac_gum"],
+            (
+                self.map_elements["cell_size"] // 6,
+                self.map_elements["cell_size"] // 6,
+            ),
+        )
+
+        self.map_elements["super_pac_gum"] = pygame.transform.scale(
+            self.img["pac_gum"],
+            (
+                self.map_elements["cell_size"] // 3,
+                self.map_elements["cell_size"] // 3,
+            ),
+        )
+
+    def _pre_render_map(self, logo: List[Tuple[int]]) -> None:
+        self.map_surface = pygame.Surface(
+            (self.WIDTH, self.HEIGHT), pygame.SRCALPHA
+        )
+        self.map_surface.fill((0, 0, 0, 0))
+
+        map_rows = len(self.map)
+        map_col = len(self.map[0])
+
+        margin = 80
+        available_w = self.WIDTH - (margin * 2)
+        available_h = self.HEIGHT - (margin * 2)
+
+        self.map_elements["cell_size"] = min(
+            available_w // map_col, available_h // map_rows
+        )
+
+        self.map_elements["offset_x"] = (
+            self.WIDTH - (map_col * self.map_elements["cell_size"])
+        ) // 2
+        self.map_elements["offset_y"] = (
+            self.HEIGHT - (map_rows * self.map_elements["cell_size"])
+        ) // 2
+
+        self._init_game_img()
+
+        wall_color = self.NEON_BLUE
+        wall_width = 3
+
+        mid_x = (
+            min([coord[0] for coord in logo])
+            + max([coord[0] for coord in logo])
+        ) // 2
+
+        mid_y = (
+            min([coord[1] for coord in logo])
+            + max([coord[1] for coord in logo])
+        ) // 2
+
+        self.map_elements["pac_coord"] = (mid_y, mid_x)
+        self.map_elements["blinky_coord"] = (0, 0)
+        self.map_elements["clyde_coord"] = (0, map_col - 1)
+        self.map_elements["inky_coord"] = (map_rows - 1, 0)
+        self.map_elements["pinky_coord"] = (map_rows - 1, map_col - 1)
+
+        coord_filled = [
+            self.map_elements["pac_coord"],
+            self.map_elements["blinky_coord"],
+            self.map_elements["clyde_coord"],
+            self.map_elements["inky_coord"],
+            self.map_elements["pinky_coord"],
+        ]
+
+        self.pac_gums_coord = []
+        self.super_pac_gums_coord = []
+
+        i = 0
+
+        for y in range(map_rows):
+            for x in range(map_col):
+
+                block_type = self.map[y][x][0]
+
+                px = (
+                    self.map_elements["offset_x"]
+                    + x * self.map_elements["cell_size"]
+                )
+                py = (
+                    self.map_elements["offset_y"]
+                    + y * self.map_elements["cell_size"]
+                )
+
+                if block_type == 15:
+                    pygame.draw.rect(
+                        self.map_surface,
+                        self.PACMAN_YELLOW,
+                        pygame.Rect(
+                            px,
+                            py,
+                            self.map_elements["cell_size"],
+                            self.map_elements["cell_size"],
+                        ),
+                    )
+                else:
+                    if (y, x) not in coord_filled:
+                        if i % 2:
+                            self.pac_gums_coord.append((y, x))
+                        i += 1
+                    elif (y, x) in coord_filled[1:]:
+                        self.super_pac_gums_coord.append((y, x))
+
+                if block_type & 1:
+                    pygame.draw.line(
+                        self.map_surface,
+                        wall_color,
+                        (px, py),
+                        (px + self.map_elements["cell_size"], py),
+                        wall_width,
+                    )
+
+                if block_type & 2:
+                    pygame.draw.line(
+                        self.map_surface,
+                        wall_color,
+                        (px + self.map_elements["cell_size"], py),
+                        (
+                            px + self.map_elements["cell_size"],
+                            py + self.map_elements["cell_size"],
+                        ),
+                        wall_width,
+                    )
+
+                if block_type & 4:
+                    pygame.draw.line(
+                        self.map_surface,
+                        wall_color,
+                        (px, py + self.map_elements["cell_size"]),
+                        (
+                            px + self.map_elements["cell_size"],
+                            py + self.map_elements["cell_size"],
+                        ),
+                        wall_width,
+                    )
+
+                if block_type & 8:
+                    pygame.draw.line(
+                        self.map_surface,
+                        wall_color,
+                        (px, py),
+                        (px, py + self.map_elements["cell_size"]),
+                        wall_width,
+                    )
+
+    def _generate_map(self) -> bool:
+        if self.current_level <= 10:
+            map, logo = self.map_generator.create_map(self.current_level)
+
+            self.map = map
+
+            self._pre_render_map(logo)
+            pac_x, pac_y = self.map_elements["pac_coord"]
+            blinky_x, blinky_y = self.map_elements["blinky_coord"]
+            clyde_x, clyde_y = self.map_elements["clyde_coord"]
+            inky_x, inky_y = self.map_elements["inky_coord"]
+            pinky_x, pinky_y = self.map_elements["pinky_coord"]
+
+            self.player = PacMan(
+                x=pac_x,
+                y=pac_y,
+                img=self.map_elements["pac_man"],
+                speed=0,
+                cell_size=self.map_elements["cell_size"],
+            )
+            self.blinky = Blinky(
+                x=blinky_x,
+                y=blinky_y,
+                img=self.map_elements["blinky"],
+                speed=0,
+            )
+            self.clyde = Clyde(
+                x=clyde_x, y=clyde_y, img=self.map_elements["clyde"], speed=0
+            )
+            self.inky = Inky(
+                x=inky_x, y=inky_y, img=self.map_elements["inky"], speed=0
+            )
+            self.pinky = Pinky(
+                x=pinky_x, y=pinky_y, img=self.map_elements["pinky"], speed=0
+            )
+
+            self.countdown_start_time = pygame.time.get_ticks()
+            self.countdown_duration = 5000
+
+            return True
+        else:
+            return False
 
     def _manage_events(
         self, events: List[Event], mouse_x: int, mouse_y: int
@@ -107,16 +375,36 @@ class GameEngine:
                                 y_min <= mouse_y <= y_max
                             ):
                                 if key == "Start Game":
-                                    self.state = GameState.PLAYING
+                                    pygame.mixer.music.stop()
+                                    if not self.countdown_play:
+                                        self.countdown_play = True
+                                        self.sound["start"].set_volume(0.2)
+                                        self.sound["start"].play()
+
+                                    self.state = GameState.STARTING_LEVEL
+                                    self.current_level = 1
+                                    self._generate_map()
+
                                 elif key == "View Highscores":
                                     self.state = GameState.SCORE
                                 elif key == "Instructions":
                                     self.state = GameState.INFO
-                                else:
+                                elif key == "Exit":
                                     return False
 
             elif self.state == GameState.PLAYING:
-                pass
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_UP:
+                        self.player.directions = Directions.UP
+
+                    elif event.key == pygame.K_RIGHT:
+                        self.player.directions = Directions.RIGHT
+
+                    elif event.key == pygame.K_LEFT:
+                        self.player.directions = Directions.LEFT
+
+                    elif event.key == pygame.K_DOWN:
+                        self.player.directions = Directions.DOWN
 
             elif self.state == GameState.PAUSED:
                 pass
@@ -136,7 +424,204 @@ class GameEngine:
                             y_min <= mouse_y <= y_max
                         ):
                             self.state = GameState.MENU
+
+        if self.state == GameState.STARTING_LEVEL:
+            current_time = pygame.time.get_ticks()
+            if (
+                current_time - self.countdown_start_time
+                >= self.countdown_duration
+            ):
+                self.player.speed = 2
+                self.state = GameState.PLAYING
         return True
+
+    def _render_countdown(self) -> None:
+        blur_surface = pygame.Surface(
+            (self.WIDTH, self.HEIGHT), pygame.SRCALPHA
+        )
+        blur_surface.fill((0, 0, 0, 160))
+
+        self.virtual_screen.blit(self.map_surface, (0, 0))
+        c_size = self.map_elements["cell_size"]
+
+        pac_gum_w, pac_gum_h = self.map_elements["pac_gum"].get_size()
+        super_pac_gum_w, super_pac_gum_h = self.map_elements[
+            "super_pac_gum"
+        ].get_size()
+
+        for y, x in self.super_pac_gums_coord:
+
+            px = (
+                self.map_elements["offset_x"]
+                + x * c_size
+                + ((c_size - super_pac_gum_w) // 2)
+            )
+            py = (
+                self.map_elements["offset_y"]
+                + y * c_size
+                + ((c_size - super_pac_gum_h) // 2)
+            )
+
+            self.virtual_screen.blit(
+                self.map_elements["super_pac_gum"], (px, py)
+            )
+
+        for y, x in self.pac_gums_coord:
+
+            px = (
+                self.map_elements["offset_x"]
+                + x * c_size
+                + ((c_size - pac_gum_w) // 2)
+            )
+            py = (
+                self.map_elements["offset_y"]
+                + y * c_size
+                + ((c_size - pac_gum_h) // 2)
+            )
+
+            self.virtual_screen.blit(self.map_elements["pac_gum"], (px, py))
+
+        self.player.draw(
+            self.virtual_screen,
+            self.map_elements["offset_x"],
+            self.map_elements["offset_y"],
+            self.map_elements["cell_size"],
+        )
+
+        self.blinky.draw(
+            self.virtual_screen,
+            self.map_elements["offset_x"],
+            self.map_elements["offset_y"],
+            self.map_elements["cell_size"],
+        )
+
+        self.clyde.draw(
+            self.virtual_screen,
+            self.map_elements["offset_x"],
+            self.map_elements["offset_y"],
+            self.map_elements["cell_size"],
+        )
+
+        self.inky.draw(
+            self.virtual_screen,
+            self.map_elements["offset_x"],
+            self.map_elements["offset_y"],
+            self.map_elements["cell_size"],
+        )
+
+        self.pinky.draw(
+            self.virtual_screen,
+            self.map_elements["offset_x"],
+            self.map_elements["offset_y"],
+            self.map_elements["cell_size"],
+        )
+
+        self.virtual_screen.blit(blur_surface, (0, 0))
+
+        current_time = pygame.time.get_ticks()
+        elapsed_time = current_time - self.countdown_start_time
+
+        count_down = max(1, 4 - (elapsed_time // 1000))
+
+        if count_down == 1:
+            text = "GO"
+        else:
+            text = str(count_down - 1)
+
+        text_1 = self.font_back_countdown.render(text, True, self.GRAY)
+        text_2 = self.font_front_countdown.render(text, True, self.NEON_BLUE)
+
+        text_x = (self.WIDTH - text_1.get_width()) // 2
+        text_y = (self.HEIGHT - text_1.get_height()) // 2
+
+        self.virtual_screen.blit(text_1, (text_x, text_y))
+        self.virtual_screen.blit(text_2, (text_x, text_y))
+
+    def _render_playing(self) -> None:
+        self.virtual_screen.blit(self.map_surface, (0, 0))
+
+        if (self.player.y, self.player.x) in self.pac_gums_coord:
+            self.pac_gums_coord.remove(self.player.y, self.player.x)
+
+        # detection du pouvoir a faire a ce moment ->
+        if (self.player.y, self.player.x) in self.super_pac_gums_coord:
+            self.super_pac_gums_coord.remove(self.player.y, self.player.x)
+
+        c_size = self.map_elements["cell_size"]
+
+        pac_gum_w, pac_gum_h = self.map_elements["pac_gum"].get_size()
+        super_pac_gum_w, super_pac_gum_h = self.map_elements[
+            "super_pac_gum"
+        ].get_size()
+
+        for y, x in self.super_pac_gums_coord:
+
+            px = (
+                self.map_elements["offset_x"]
+                + x * c_size
+                + ((c_size - super_pac_gum_w) // 2)
+            )
+            py = (
+                self.map_elements["offset_y"]
+                + y * c_size
+                + ((c_size - super_pac_gum_h) // 2)
+            )
+
+            self.virtual_screen.blit(
+                self.map_elements["super_pac_gum"], (px, py)
+            )
+
+        for y, x in self.pac_gums_coord:
+
+            px = (
+                self.map_elements["offset_x"]
+                + x * c_size
+                + ((c_size - pac_gum_w) // 2)
+            )
+            py = (
+                self.map_elements["offset_y"]
+                + y * c_size
+                + ((c_size - pac_gum_h) // 2)
+            )
+
+            self.virtual_screen.blit(self.map_elements["pac_gum"], (px, py))
+
+        self.player.move(self.map, self.map_elements["cell_size"])
+
+        self.player.draw(
+            self.virtual_screen,
+            self.map_elements["offset_x"],
+            self.map_elements["offset_y"],
+            self.map_elements["cell_size"],
+        )
+
+        self.blinky.draw(
+            self.virtual_screen,
+            self.map_elements["offset_x"],
+            self.map_elements["offset_y"],
+            self.map_elements["cell_size"],
+        )
+
+        self.clyde.draw(
+            self.virtual_screen,
+            self.map_elements["offset_x"],
+            self.map_elements["offset_y"],
+            self.map_elements["cell_size"],
+        )
+
+        self.inky.draw(
+            self.virtual_screen,
+            self.map_elements["offset_x"],
+            self.map_elements["offset_y"],
+            self.map_elements["cell_size"],
+        )
+
+        self.pinky.draw(
+            self.virtual_screen,
+            self.map_elements["offset_x"],
+            self.map_elements["offset_y"],
+            self.map_elements["cell_size"],
+        )
 
     def _render_home(self, mouse_x: int, mouse_y: int) -> None:
         title_img = self.img["title"]
@@ -335,6 +820,10 @@ class GameEngine:
             self._render_home(mouse_x, mouse_y)
         elif self.state == GameState.INFO:
             self._render_instructions(mouse_x, mouse_y)
+        elif self.state == GameState.PLAYING:
+            self._render_playing()
+        elif self.state == GameState.STARTING_LEVEL:
+            self._render_countdown()
 
     def _get_scale(self) -> Any:
         win_w, win_h = self.real_screen.get_size()
@@ -402,5 +891,17 @@ class GameEngine:
 
             self.real_screen.fill((0, 0, 0))
             self.real_screen.blit(scaled_surface, (offset_x, offset_y))
+
+            pygame.draw.rect(
+                self.real_screen,
+                self.PACMAN_YELLOW,
+                pygame.Rect(
+                    offset_x,
+                    offset_y + 2,
+                    new_w,
+                    new_h - 4,
+                ),
+                3,
+            )
 
             pygame.display.flip()
