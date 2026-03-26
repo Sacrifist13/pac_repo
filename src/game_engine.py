@@ -20,6 +20,12 @@ class GameState(Enum):
     STARTING_LEVEL = auto()
 
 
+class PlayingState(Enum):
+    RETREATE = auto()
+    POWER = auto()
+    DEATH = auto()
+
+
 class GameEngine:
 
     WIDTH = 800
@@ -28,19 +34,25 @@ class GameEngine:
     GRAY = (155, 155, 155)
     PACMAN_YELLOW = (255, 255, 0)
     NEON_BLUE = (33, 33, 255)
+    NEON_PINK = (255, 20, 147)
 
     def __init__(self) -> None:
         self.map_generator = MapGenerator()
         self.map_elements: Dict[str, Any] = {}
         self.countdown_play = False
+        self.playing_state = PlayingState.RETREATE
+        self.music_load = False
 
-    def _init(self) -> None:
+    def _init_game(self) -> None:
         self.state = GameState.MENU
         self.img: Dict[str, pygame.Surface] = {}
         self.sound: Dict[str, Any] = {}
+        self.score = 0
 
         loader = Loader()
         self.config = loader.load_config(sys.argv)
+
+        self.lives = self.config.lives
 
         assets_dir = Path("assets")
 
@@ -102,6 +114,8 @@ class GameEngine:
         self.font_front_countdown = pygame.font.Font(
             "assets/font/front.otf", font_size * 3
         )
+
+        self.font_basic = pygame.font.Font("assets/font/basic.ttf", 14)
 
     def _init_game_img(self) -> None:
         self.map_elements["pac_man"] = {
@@ -333,12 +347,14 @@ class GameEngine:
                 img=self.map_elements["pac_man"],
                 speed=0,
                 cell_size=self.map_elements["cell_size"],
+                sound=self.sound,
             )
             self.blinky = Blinky(
                 x=blinky_x,
                 y=blinky_y,
                 img=self.map_elements["blinky"],
                 speed=0,
+                cell_size=self.map_elements["cell_size"],
             )
             self.clyde = Clyde(
                 x=clyde_x, y=clyde_y, img=self.map_elements["clyde"], speed=0
@@ -375,15 +391,10 @@ class GameEngine:
                                 y_min <= mouse_y <= y_max
                             ):
                                 if key == "Start Game":
-                                    pygame.mixer.music.stop()
-                                    if not self.countdown_play:
-                                        self.countdown_play = True
-                                        self.sound["start"].set_volume(0.2)
-                                        self.sound["start"].play()
-
                                     self.state = GameState.STARTING_LEVEL
                                     self.current_level = 1
                                     self._generate_map()
+                                    self.score = 0
 
                                 elif key == "View Highscores":
                                     self.state = GameState.SCORE
@@ -395,16 +406,13 @@ class GameEngine:
             elif self.state == GameState.PLAYING:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_UP:
-                        self.player.directions = Directions.UP
-
+                        self.player.set_direction(Directions.UP)
                     elif event.key == pygame.K_RIGHT:
-                        self.player.directions = Directions.RIGHT
-
+                        self.player.set_direction(Directions.RIGHT)
                     elif event.key == pygame.K_LEFT:
-                        self.player.directions = Directions.LEFT
-
+                        self.player.set_direction(Directions.LEFT)
                     elif event.key == pygame.K_DOWN:
-                        self.player.directions = Directions.DOWN
+                        self.player.set_direction(Directions.DOWN)
 
             elif self.state == GameState.PAUSED:
                 pass
@@ -433,13 +441,64 @@ class GameEngine:
             ):
                 self.player.speed = 2
                 self.state = GameState.PLAYING
+                self.player.set_direction(Directions.UP)
         return True
 
-    def _render_countdown(self) -> None:
-        blur_surface = pygame.Surface(
-            (self.WIDTH, self.HEIGHT), pygame.SRCALPHA
+    def get_hitbox(self, pixel_x, pixel_y, cell_size: int, ratio=0.6):
+        hitbox_size = int(cell_size * ratio)
+        offset = (cell_size - hitbox_size) // 2
+        return pygame.Rect(
+            pixel_x + offset, pixel_y + offset, hitbox_size, hitbox_size
         )
-        blur_surface.fill((0, 0, 0, 160))
+
+    def _render_game_elements(self) -> None:
+        level_text_1 = self.font_back.render(
+            "Level " + str(self.current_level), True, self.NEON_BLUE
+        )
+        level_text_2 = self.font_front.render(
+            "Level " + str(self.current_level), True, self.PACMAN_YELLOW
+        )
+
+        level_text_w, level_text_h = level_text_1.get_size()
+        level_text_x = (self.WIDTH - level_text_w) // 2
+        level_text_y = (80 - level_text_h) // 2
+
+        self.virtual_screen.blit(level_text_1, (level_text_x, level_text_y))
+        self.virtual_screen.blit(level_text_2, (level_text_x, level_text_y))
+
+        score_text_1 = self.font_basic.render("Score ", True, self.GRAY)
+        score_text_2 = self.font_basic.render(
+            str(self.score), True, self.NEON_PINK
+        )
+
+        score_text_h = score_text_1.get_height()
+
+        self.virtual_screen.blit(
+            score_text_1, (80, level_text_y + level_text_h - score_text_h)
+        )
+        self.virtual_screen.blit(
+            score_text_2,
+            (
+                80 + score_text_1.get_width(),
+                level_text_y + level_text_h - score_text_h,
+            ),
+        )
+
+        pac_img_life = pygame.transform.scale(self.img["pac_2"], (20, 20))
+        pac_img_x = self.WIDTH - 80 - pac_img_life.get_width()
+        pac_img_y = level_text_y + level_text_h - pac_img_life.get_height()
+
+        for i in range(3):
+            self.virtual_screen.blit(pac_img_life, (pac_img_x, pac_img_y))
+            pac_img_x -= 5 + pac_img_life.get_width()
+
+        pac_img_x += 5 + pac_img_life.get_width()
+
+        for i in range(self.config.lives - self.lives):
+            overlay = pygame.Surface((20, 20), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 180))
+            self.virtual_screen.blit(overlay, (pac_img_x, pac_img_y))
+            pac_img_x += 5 + pac_img_life.get_width()
 
         self.virtual_screen.blit(self.map_surface, (0, 0))
         c_size = self.map_elements["cell_size"]
@@ -465,6 +524,8 @@ class GameEngine:
             self.virtual_screen.blit(
                 self.map_elements["super_pac_gum"], (px, py)
             )
+
+        self.nb_pac_gums = len(self.pac_gums_coord)
 
         for y, x in self.pac_gums_coord:
 
@@ -516,112 +577,69 @@ class GameEngine:
             self.map_elements["cell_size"],
         )
 
-        self.virtual_screen.blit(blur_surface, (0, 0))
+    def _render_hud(self) -> None:
 
-        current_time = pygame.time.get_ticks()
-        elapsed_time = current_time - self.countdown_start_time
+        self._render_game_elements()
 
-        count_down = max(1, 4 - (elapsed_time // 1000))
+        if self.state == GameState.STARTING_LEVEL:
+            pygame.mixer.music.stop()
+            if not self.countdown_play:
+                self.countdown_play = True
+                self.sound["start"].set_volume(0.2)
+                self.sound["start"].play()
 
-        if count_down == 1:
-            text = "GO"
-        else:
-            text = str(count_down - 1)
-
-        text_1 = self.font_back_countdown.render(text, True, self.GRAY)
-        text_2 = self.font_front_countdown.render(text, True, self.NEON_BLUE)
-
-        text_x = (self.WIDTH - text_1.get_width()) // 2
-        text_y = (self.HEIGHT - text_1.get_height()) // 2
-
-        self.virtual_screen.blit(text_1, (text_x, text_y))
-        self.virtual_screen.blit(text_2, (text_x, text_y))
-
-    def _render_playing(self) -> None:
-        self.virtual_screen.blit(self.map_surface, (0, 0))
-
-        if (self.player.y, self.player.x) in self.pac_gums_coord:
-            self.pac_gums_coord.remove(self.player.y, self.player.x)
-
-        # detection du pouvoir a faire a ce moment ->
-        if (self.player.y, self.player.x) in self.super_pac_gums_coord:
-            self.super_pac_gums_coord.remove(self.player.y, self.player.x)
-
-        c_size = self.map_elements["cell_size"]
-
-        pac_gum_w, pac_gum_h = self.map_elements["pac_gum"].get_size()
-        super_pac_gum_w, super_pac_gum_h = self.map_elements[
-            "super_pac_gum"
-        ].get_size()
-
-        for y, x in self.super_pac_gums_coord:
-
-            px = (
-                self.map_elements["offset_x"]
-                + x * c_size
-                + ((c_size - super_pac_gum_w) // 2)
+            blur_surface = pygame.Surface(
+                (self.WIDTH, self.HEIGHT), pygame.SRCALPHA
             )
-            py = (
-                self.map_elements["offset_y"]
-                + y * c_size
-                + ((c_size - super_pac_gum_h) // 2)
+            blur_surface.fill((0, 0, 0, 160))
+            self.virtual_screen.blit(blur_surface, (0, 0))
+
+            current_time = pygame.time.get_ticks()
+            elapsed_time = current_time - self.countdown_start_time
+
+            count_down = max(1, 4 - (elapsed_time // 1000))
+
+            if count_down == 1:
+                text = "GO"
+            else:
+                text = str(count_down - 1)
+
+            text_1 = self.font_back_countdown.render(text, True, self.GRAY)
+            text_2 = self.font_front_countdown.render(
+                text, True, self.NEON_BLUE
             )
 
-            self.virtual_screen.blit(
-                self.map_elements["super_pac_gum"], (px, py)
+            text_x = (self.WIDTH - text_1.get_width()) // 2
+            text_y = (self.HEIGHT - text_1.get_height()) // 2
+
+            self.virtual_screen.blit(text_1, (text_x, text_y))
+            self.virtual_screen.blit(text_2, (text_x, text_y))
+
+        elif self.state == GameState.PLAYING:
+            self.player.move(
+                self.map,
+                self.map_elements["cell_size"],
+                self.pac_gums_coord,
+                self.super_pac_gums_coord,
             )
 
-        for y, x in self.pac_gums_coord:
+            if len(self.pac_gums_coord) != self.nb_pac_gums:
+                self.score += self.config.points_per_pacgum
 
-            px = (
-                self.map_elements["offset_x"]
-                + x * c_size
-                + ((c_size - pac_gum_w) // 2)
+            pac_rect = self.get_hitbox(
+                self.player.pixel_x,
+                self.player.pixel_y,
+                self.map_elements["cell_size"],
             )
-            py = (
-                self.map_elements["offset_y"]
-                + y * c_size
-                + ((c_size - pac_gum_h) // 2)
+            blinky_rect = self.get_hitbox(
+                self.blinky.pixel_x,
+                self.blinky.pixel_y,
+                self.map_elements["cell_size"],
             )
 
-            self.virtual_screen.blit(self.map_elements["pac_gum"], (px, py))
-
-        self.player.move(self.map, self.map_elements["cell_size"])
-
-        self.player.draw(
-            self.virtual_screen,
-            self.map_elements["offset_x"],
-            self.map_elements["offset_y"],
-            self.map_elements["cell_size"],
-        )
-
-        self.blinky.draw(
-            self.virtual_screen,
-            self.map_elements["offset_x"],
-            self.map_elements["offset_y"],
-            self.map_elements["cell_size"],
-        )
-
-        self.clyde.draw(
-            self.virtual_screen,
-            self.map_elements["offset_x"],
-            self.map_elements["offset_y"],
-            self.map_elements["cell_size"],
-        )
-
-        self.inky.draw(
-            self.virtual_screen,
-            self.map_elements["offset_x"],
-            self.map_elements["offset_y"],
-            self.map_elements["cell_size"],
-        )
-
-        self.pinky.draw(
-            self.virtual_screen,
-            self.map_elements["offset_x"],
-            self.map_elements["offset_y"],
-            self.map_elements["cell_size"],
-        )
+            if pac_rect.colliderect(blinky_rect):
+                self.playing_state == PlayingState.DEATH
+                self.player.speed = 0
 
     def _render_home(self, mouse_x: int, mouse_y: int) -> None:
         title_img = self.img["title"]
@@ -820,10 +838,11 @@ class GameEngine:
             self._render_home(mouse_x, mouse_y)
         elif self.state == GameState.INFO:
             self._render_instructions(mouse_x, mouse_y)
-        elif self.state == GameState.PLAYING:
-            self._render_playing()
-        elif self.state == GameState.STARTING_LEVEL:
-            self._render_countdown()
+        elif (
+            self.state == GameState.PLAYING
+            or self.state == GameState.STARTING_LEVEL
+        ):
+            self._render_hud()
 
     def _get_scale(self) -> Any:
         win_w, win_h = self.real_screen.get_size()
@@ -855,6 +874,8 @@ class GameEngine:
     def run(self) -> None:
         os.environ["SDL_VIDEO_CENTERED"] = "1"
 
+        print("CHEMIN DE PYGAME :", pygame.__file__)
+
         pygame.init()
         pygame.mixer.init()
 
@@ -864,7 +885,7 @@ class GameEngine:
 
         self.virtual_screen = pygame.Surface((800, 800))
 
-        self._init()
+        self._init_game()
 
         clock = pygame.time.Clock()
         running = True
