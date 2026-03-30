@@ -179,20 +179,24 @@ class GameEngine:
             ),
         )
 
-        self.map_elements["pinky"]["scared_1"] = pygame.transform.scale(
-            self.img["scared_basic"],
-            (
-                self.map_elements["cell_size"] // 2,
-                self.map_elements["cell_size"] // 2,
-            ),
-        )
+        self.map_elements["scared"] = [
+            pygame.transform.scale(
+                self.img["scared_basic"],
+                (
+                    self.map_elements["cell_size"] // 2,
+                    self.map_elements["cell_size"] // 2,
+                ),
+            )
+        ]
 
-        self.map_elements["pinky"]["scared_2"] = pygame.transform.scale(
-            self.img["scared_white"],
-            (
-                self.map_elements["cell_size"] // 2,
-                self.map_elements["cell_size"] // 2,
-            ),
+        self.map_elements["scared"].append(
+            pygame.transform.scale(
+                self.img["scared_white"],
+                (
+                    self.map_elements["cell_size"] // 2,
+                    self.map_elements["cell_size"] // 2,
+                ),
+            )
         )
 
     def _pre_render_map(self, logo: List[Tuple[int]]) -> None:
@@ -342,40 +346,48 @@ class GameEngine:
             pinky_x, pinky_y = self.map_elements["pinky_coord"]
 
             self.player = PacMan(
-                x=pac_x,
-                y=pac_y,
-                img=self.map_elements["pac_man"],
+                name="Pac-man",
+                grid_x=pac_x,
+                grid_y=pac_y,
                 speed=0,
                 cell_size=self.map_elements["cell_size"],
-                sound=self.sound,
+                img=self.map_elements["pac_man"],
             )
             self.blinky = Blinky(
-                x=blinky_x,
-                y=blinky_y,
-                img=self.map_elements["blinky"],
+                name="blinky",
+                grid_x=blinky_x,
+                grid_y=blinky_y,
                 speed=0,
                 cell_size=self.map_elements["cell_size"],
+                img=self.map_elements["blinky"],
+                scared_img=self.map_elements["scared"],
             )
             self.clyde = Clyde(
-                x=clyde_x,
-                y=clyde_y,
-                img=self.map_elements["clyde"],
+                name="clyde",
+                grid_x=clyde_x,
+                grid_y=clyde_y,
                 speed=0,
                 cell_size=self.map_elements["cell_size"],
+                img=self.map_elements["clyde"],
+                scared_img=self.map_elements["scared"],
             )
             self.inky = Inky(
-                x=inky_x,
-                y=inky_y,
-                img=self.map_elements["inky"],
+                name="inky",
+                grid_x=inky_x,
+                grid_y=inky_y,
                 speed=0,
                 cell_size=self.map_elements["cell_size"],
+                img=self.map_elements["inky"],
+                scared_img=self.map_elements["scared"],
             )
             self.pinky = Pinky(
-                x=pinky_x,
-                y=pinky_y,
-                img=self.map_elements["pinky"],
+                name="pinky",
+                grid_x=pinky_x,
+                grid_y=pinky_y,
                 speed=0,
                 cell_size=self.map_elements["cell_size"],
+                img=self.map_elements["pinky"],
+                scared_img=self.map_elements["scared"],
             )
 
             self.countdown_start_time = pygame.time.get_ticks()
@@ -475,7 +487,16 @@ class GameEngine:
             "super_pac_gum"
         ].get_size()
 
+        pac_x = self.player.pixel_x
+        pac_y = self.player.pixel_y
+
         for y, x in self.super_pac_gums_coord:
+            if (
+                y * self.map_elements["cell_size"] == pac_y
+                and x * self.map_elements["cell_size"] == pac_x
+            ):
+                self.super_pac_gums_coord.remove((y, x))
+                continue
 
             px = (
                 self.map_elements["offset_x"]
@@ -512,39 +533,37 @@ class GameEngine:
 
     def _draw_entities(self) -> None:
         if self.playing_state != PlayingState.DEATH:
-            self.player.draw(
+            self.player.draw_on_surface(
                 self.virtual_screen,
                 self.map_elements["offset_x"],
                 self.map_elements["offset_y"],
-                self.map_elements["cell_size"],
             )
 
-        self.blinky.draw(
+        self.blinky.draw_on_surface(
             self.virtual_screen,
             self.map_elements["offset_x"],
             self.map_elements["offset_y"],
-            self.map_elements["cell_size"],
+            self.playing_state,
         )
 
-        self.clyde.draw(
+        self.clyde.draw_on_surface(
             self.virtual_screen,
             self.map_elements["offset_x"],
             self.map_elements["offset_y"],
-            self.map_elements["cell_size"],
+            self.playing_state,
         )
 
-        self.inky.draw(
+        self.inky.draw_on_surface(
             self.virtual_screen,
             self.map_elements["offset_x"],
             self.map_elements["offset_y"],
-            self.map_elements["cell_size"],
+            self.playing_state,
         )
 
-        self.pinky.draw(
+        self.pinky.draw_on_surface(
             self.virtual_screen,
             self.map_elements["offset_x"],
             self.map_elements["offset_y"],
-            self.map_elements["cell_size"],
             self.playing_state,
         )
 
@@ -713,16 +732,11 @@ class GameEngine:
                 else:
                     pygame.mixer.music.stop()
 
-                self.player.move(
-                    self.map,
-                    self.map_elements["cell_size"],
-                    self.pac_gums_coord,
-                    self.super_pac_gums_coord,
-                )
-                self.blinky.move(self.map, self.map_elements["cell_size"])
-                self.clyde.move(self.map, self.map_elements["cell_size"])
-                self.inky.move(self.map, self.map_elements["cell_size"])
-                self.pinky.move(self.map, self.map_elements["cell_size"])
+                self.player.move(self.map)
+                self.blinky.move_random(self.map)
+                self.clyde.move_random(self.map)
+                self.inky.move_random(self.map)
+                self.pinky.move_random(self.map)
 
                 if len(self.pac_gums_coord) != self.nb_pac_gums:
                     self.score += self.config.points_per_pacgum
