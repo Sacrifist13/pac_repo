@@ -339,11 +339,11 @@ class GameEngine:
             self.map = map
 
             self._pre_render_map(logo)
-            pac_x, pac_y = self.map_elements["pac_coord"]
-            blinky_x, blinky_y = self.map_elements["blinky_coord"]
-            clyde_x, clyde_y = self.map_elements["clyde_coord"]
-            inky_x, inky_y = self.map_elements["inky_coord"]
-            pinky_x, pinky_y = self.map_elements["pinky_coord"]
+            pac_y, pac_x = self.map_elements["pac_coord"]
+            blinky_y, blinky_x = self.map_elements["blinky_coord"]
+            clyde_y, clyde_x = self.map_elements["clyde_coord"]
+            inky_y, inky_x = self.map_elements["inky_coord"]
+            pinky_y, pinky_x = self.map_elements["pinky_coord"]
 
             self.player = PacMan(
                 name="Pac-man",
@@ -537,6 +537,7 @@ class GameEngine:
                 self.virtual_screen,
                 self.map_elements["offset_x"],
                 self.map_elements["offset_y"],
+                self.playing_state,
             )
 
         self.blinky.draw_on_surface(
