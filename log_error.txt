@@ -1,0 +1,1 @@
+Unexpected system error during logo generation: 'MazeGenerator' object has no attribute '_config'

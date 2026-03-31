@@ -1,3 +1,4 @@
+import os
 import sys
 import pygame
 from pathlib import Path
@@ -17,12 +18,50 @@ class GameEngine:
     PACMAN_YELLOW = (255, 255, 0)
     NEON_BLUE = (33, 33, 255)
     NEON_PINK = (255, 20, 147)
+    PURPLE = (133, 76, 135)
 
     def __init__(self) -> None:
         self.map_generator = MapGenerator()
-        self.game_img: Dict[str, pygame.Surface | pygame.surface.Surface] = {}
+        self.game_img: Dict[str, Any] = {}
+        self.playing_state = PlayingState.RETREATE
+        self.countdown_play = False
+        self.music_load = False
+        self.death_time: int = 0
+        self.power_time: int = 0
+        self.current_level: int = 1
+        self.score: int = 0
+        self.lives: int = 0
 
-    def _get_hitbox(self, pixel_x, pixel_y, cell_size: int, ratio=0.5):
+    def _get_scale(self) -> Any:
+        win_w, win_h = self.real_screen.get_size()
+        virt_w, virt_h = self.virtual_screen.get_size()
+
+        scale_x = win_w / virt_w
+        scale_y = win_h / virt_h
+        scale = min(scale_x, scale_y)
+
+        new_w = int(virt_w * scale)
+        new_h = int(virt_h * scale)
+
+        offset_x = (win_w - new_w) // 2
+        offset_y = (win_h - new_h) // 2
+
+        raw_x, raw_y = pygame.mouse.get_pos()
+        virtual_mouse_x = (raw_x - offset_x) / scale
+        virtual_mouse_y = (raw_y - offset_y) / scale
+
+        return (
+            new_w,
+            new_h,
+            offset_x,
+            offset_y,
+            virtual_mouse_x,
+            virtual_mouse_y,
+        )
+
+    def _get_hitbox(
+        self, pixel_x: int, pixel_y: int, cell_size: int, ratio: float = 0.5
+    ) -> pygame.Rect:
         hitbox_size = int(cell_size * ratio)
         offset = (cell_size - hitbox_size) // 2
         return pygame.Rect(
@@ -37,6 +76,7 @@ class GameEngine:
         loader = Loader()
         self.config = loader.load_config(sys.argv)
 
+        # self.lives = self.config.lives
         self.lives = self.config.lives
 
         assets_dir = Path("assets")
@@ -93,6 +133,13 @@ class GameEngine:
         self.font_back = pygame.font.Font("assets/font/back.otf", font_size)
         self.font_front = pygame.font.Font("assets/font/front.otf", font_size)
 
+        self.font_back_game_over = pygame.font.Font(
+            "assets/font/back.otf", int(font_size / 1.5)
+        )
+        self.font_front_game_over = pygame.font.Font(
+            "assets/font/front.otf", int(font_size / 1.5)
+        )
+
         self.font_back_countdown = pygame.font.Font(
             "assets/font/back.otf", font_size * 3
         )
@@ -107,8 +154,8 @@ class GameEngine:
             key: pygame.transform.scale(
                 img,
                 (
-                    cell_size // 1.5,
-                    cell_size // 1.5,
+                    int(cell_size / 1.5),
+                    int(cell_size / 1.5),
                 ),
             )
             for key, img in self.img.items()
@@ -184,8 +231,8 @@ class GameEngine:
             pygame.transform.scale(
                 self.img["scared_basic"],
                 (
-                    cell_size // 2,
-                    cell_size // 2,
+                    int(cell_size / 1.8),
+                    int(cell_size / 1.8),
                 ),
             )
         ]
@@ -194,13 +241,15 @@ class GameEngine:
             pygame.transform.scale(
                 self.img["scared_white"],
                 (
-                    cell_size // 2,
-                    cell_size // 2,
+                    int(cell_size / 1.8),
+                    int(cell_size / 1.8),
                 ),
             )
         )
 
-    def _load_map_elements(self, logo: List[Tuple[int]], margin: int) -> None:
+    def _load_map_elements(
+        self, logo: List[Tuple[int, int]], margin: int = 80
+    ) -> None:
         self.map_surface = pygame.Surface(
             (self.WIDTH, self.HEIGHT), pygame.SRCALPHA
         )
@@ -214,8 +263,8 @@ class GameEngine:
 
         cell_size = min(available_w // map_cols, available_h // map_rows)
 
-        offset_x = (self.WIDTH - (map_cols * cell_size)) // 2
-        offset_y = (self.HEIGHT - (map_rows * cell_size)) // 2
+        self.game_offset_x = (self.WIDTH - (map_cols * cell_size)) // 2
+        self.game_offset_y = (self.HEIGHT - (map_rows * cell_size)) // 2
 
         self._load_game_img(cell_size)
 
@@ -245,9 +294,9 @@ class GameEngine:
 
         self.ghosts: Dict[str, Ghost] = {}
 
-        for key, value in ghosts:
+        for ghost_class, value in ghosts.items():
             name, y, x = value
-            self.ghosts[name] = key(
+            self.ghosts[name] = ghost_class(
                 name,
                 x,
                 y,
@@ -257,8 +306,9 @@ class GameEngine:
                 self.game_img["scared"],
             )
 
-        coord_filled = [(coord[1], coord[0]) for coord in ghosts]
-        coord_filled.append((mid_y, mid_x))
+        coord_filled: List[Tuple[int, int]] = [(mid_y, mid_x)]
+        for value in ghosts.values():
+            coord_filled.append((int(value[1]), int(value[2])))
 
         self.pac_gums_coord = []
         self.super_pac_gums_coord = []
@@ -270,8 +320,8 @@ class GameEngine:
 
                 block_type = self.map[y][x][0]
 
-                px = offset_x + x * cell_size
-                py = offset_y + y * cell_size
+                px = self.game_offset_x + x * cell_size
+                py = self.game_offset_y + y * cell_size
 
                 if block_type == 15:
                     pygame.draw.rect(
@@ -344,6 +394,617 @@ class GameEngine:
         self.countdown_start_time = pygame.time.get_ticks()
         self.countdown_duration = 5000
 
+        return True
+
+    def _draw_pac_gums(self) -> None:
+        c_size = self.pac_man.cell_size
+
+        pac_gum_w, pac_gum_h = self.game_img["pac_gum"].get_size()
+        super_pac_gum_w, super_pac_gum_h = self.game_img[
+            "super_pac_gum"
+        ].get_size()
+
+        for y, x in self.super_pac_gums_coord:
+            px = (
+                self.game_offset_x
+                + x * c_size
+                + ((c_size - super_pac_gum_w) // 2)
+            )
+            py = (
+                self.game_offset_y
+                + y * c_size
+                + ((c_size - super_pac_gum_h) // 2)
+            )
+
+            self.virtual_screen.blit(self.game_img["super_pac_gum"], (px, py))
+
+        self.nb_pac_gums = len(self.pac_gums_coord)
+        self.super_pac_gums = len(self.super_pac_gums_coord)
+
+        for y, x in self.pac_gums_coord:
+
+            px = self.game_offset_x + x * c_size + ((c_size - pac_gum_w) // 2)
+            py = self.game_offset_y + y * c_size + ((c_size - pac_gum_h) // 2)
+
+            self.virtual_screen.blit(self.game_img["pac_gum"], (px, py))
+
+    def _draw_game_status(self) -> None:
+        level_text_1 = self.font_back.render(
+            "Level " + str(self.current_level), True, self.NEON_BLUE
+        )
+        level_text_2 = self.font_front.render(
+            "Level " + str(self.current_level), True, self.PACMAN_YELLOW
+        )
+
+        level_text_w, level_text_h = level_text_1.get_size()
+        level_text_x = (self.WIDTH - level_text_w) // 2
+        level_text_y = (80 - level_text_h) // 2
+
+        self.virtual_screen.blit(level_text_1, (level_text_x, level_text_y))
+        self.virtual_screen.blit(level_text_2, (level_text_x, level_text_y))
+
+        score_text_1 = self.font_basic.render("Score ", True, self.GRAY)
+        score_text_2 = self.font_basic.render(
+            str(self.score), True, self.NEON_PINK
+        )
+
+        score_text_h = score_text_1.get_height()
+
+        self.virtual_screen.blit(
+            score_text_1, (80, level_text_y + level_text_h - score_text_h)
+        )
+        self.virtual_screen.blit(
+            score_text_2,
+            (
+                80 + score_text_1.get_width(),
+                level_text_y + level_text_h - score_text_h,
+            ),
+        )
+
+        pac_img_life = pygame.transform.scale(self.img["pac_2"], (20, 20))
+        pac_img_x = self.WIDTH - 80 - pac_img_life.get_width()
+        pac_img_y = level_text_y + level_text_h - pac_img_life.get_height()
+
+        for i in range(3):
+            self.virtual_screen.blit(pac_img_life, (pac_img_x, pac_img_y))
+            pac_img_x -= 5 + pac_img_life.get_width()
+
+        pac_img_x += 5 + pac_img_life.get_width()
+
+        for i in range(self.config.lives - self.lives):
+            overlay = pygame.Surface((20, 20), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 180))
+            self.virtual_screen.blit(overlay, (pac_img_x, pac_img_y))
+            pac_img_x += 5 + pac_img_life.get_width()
+
+    def _draw_entities(self) -> None:
+        if self.playing_state != PlayingState.DEATH:
+            self.pac_man.draw_on_surface(
+                self.virtual_screen,
+                self.game_offset_x,
+                self.game_offset_y,
+                self.playing_state,
+            )
+
+        for ghost in self.ghosts.values():
+            ghost.draw_on_surface(
+                self.virtual_screen,
+                self.game_offset_x,
+                self.game_offset_y,
+                self.playing_state,
+            )
+
+    def _move_entities(self) -> None:
+
+        self.pac_man.move(self.map)
+
+        if self.playing_state == PlayingState.POWER:
+            for ghost in self.ghosts.values():
+                ghost.move_random(self.map)
+        else:
+            # ghost.move() quand les algos des fantomes seront termines
+            for ghost in self.ghosts.values():
+                ghost.move_random(self.map)
+
+    def _eat_pac_gums(self) -> bool:
+        cell_size = self.pac_man.cell_size
+
+        pac_cx = self.pac_man.pixel_x + cell_size // 2
+        pac_cy = self.pac_man.pixel_y + cell_size // 2
+
+        y = pac_cy // cell_size
+        x = pac_cx // cell_size
+
+        if (y, x) in self.pac_gums_coord:
+            self.pac_gums_coord.remove((y, x))
+
+            return True
+
+        return False
+
+    def _eat_super_pac_gums(self) -> bool:
+        cell_size = self.pac_man.cell_size
+
+        pac_cx = self.pac_man.pixel_x + cell_size // 2
+        pac_cy = self.pac_man.pixel_y + cell_size // 2
+
+        y = pac_cy // cell_size
+        x = pac_cx // cell_size
+
+        if (y, x) in self.super_pac_gums_coord:
+            self.super_pac_gums_coord.remove((y, x))
+
+            return True
+
+        return False
+
+    def _is_pac_man_catch(self) -> bool:
+        cell_size = self.pac_man.cell_size
+
+        pac_rect = self._get_hitbox(
+            self.pac_man.pixel_x, self.pac_man.pixel_y, cell_size
+        )
+
+        for ghost in self.ghosts.values():
+            ghost_rect = self._get_hitbox(
+                ghost.pixel_x, ghost.pixel_y, cell_size
+            )
+
+            if pac_rect.colliderect(ghost_rect):
+                return True
+
+        return False
+
+    def _render_starting_level(self) -> None:
+
+        blur_surface = pygame.Surface(
+            (self.WIDTH, self.HEIGHT), pygame.SRCALPHA
+        )
+        blur_surface.fill((0, 0, 0, 160))
+        self.virtual_screen.blit(blur_surface, (0, 0))
+
+        current_time = pygame.time.get_ticks()
+        elapsed_time = current_time - self.countdown_start_time
+
+        count_down = max(1, 4 - (elapsed_time // 1000))
+
+        if count_down == 1:
+            text = "GO"
+        else:
+            text = str(count_down - 1)
+
+        text_1 = self.font_back_countdown.render(text, True, self.GRAY)
+        text_2 = self.font_front_countdown.render(text, True, self.NEON_BLUE)
+
+        text_x = (self.WIDTH - text_1.get_width()) // 2
+        text_y = (self.HEIGHT - text_1.get_height()) // 2
+
+        self.virtual_screen.blit(text_1, (text_x, text_y))
+        self.virtual_screen.blit(text_2, (text_x, text_y))
+
+    def _render_pac_man_dying(self) -> bool:
+        x, y = self.pac_man.pixel_x, self.pac_man.pixel_y
+        cell_size = self.pac_man.cell_size
+
+        current_time = pygame.time.get_ticks()
+
+        if self.death_time + 1200 <= current_time:
+            self.pac_man.reset_pos()
+            self.playing_state = PlayingState.RETREATE
+            self.pac_man.speed = 2
+
+            return True
+
+        elapsed = current_time - self.death_time
+        frame_index = min(elapsed * 12 // 1200, 11)
+
+        death_frame = pygame.transform.scale(
+            self.img[str(frame_index + 1)],
+            (int(cell_size / 1.5), int(cell_size / 1.5)),
+        )
+
+        px = (
+            self.game_offset_x
+            + x
+            + ((cell_size - death_frame.get_width()) // 2)
+        )
+        py = (
+            self.game_offset_y
+            + y
+            + ((cell_size - death_frame.get_height()) // 2)
+        )
+
+        self.virtual_screen.blit(death_frame, (px, py))
+
+        return False
+
+    def _render_game_over(self, mouse_x: int, mouse_y: int) -> None:
+        blur_surface = pygame.Surface(
+            (self.WIDTH, self.HEIGHT), pygame.SRCALPHA
+        )
+        blur_surface.fill((0, 0, 0, 160))
+
+        self.virtual_screen.blit(blur_surface, (0, 0))
+
+        pop_up_surface = pygame.Surface(
+            (int(self.WIDTH / 1.5), self.HEIGHT // 3), pygame.SRCALPHA
+        )
+
+        w, h = pop_up_surface.get_size()
+
+        x, y = (self.WIDTH - w) // 2, (self.HEIGHT - h) // 2
+
+        pop_up_surface.fill(self.BLACK)
+
+        color = self.PURPLE
+
+        if x <= mouse_x <= x + w and y <= mouse_y <= y + h:
+            color = self.NEON_PINK
+
+        pygame.draw.rect(
+            self.virtual_screen,
+            color,
+            pygame.Rect(x - 1, y - 1, w + 2, h + 2),
+            2,
+        )
+        text_1 = self.font_back.render("GAME OVER", True, self.GRAY)
+        text_2 = self.font_front.render("GAME OVER", True, color)
+
+        text_x = (w - text_1.get_width()) // 2
+
+        pop_up_surface.blit(text_1, (text_x, 2))
+        pop_up_surface.blit(text_2, (text_x, 2))
+
+        back_text_1 = self.font_back_game_over.render("BACK", True, self.GRAY)
+
+        back_text_w, back_text_h = back_text_1.get_size()
+
+        back_text_x = (w - back_text_w) // 2
+        back_text_y = h - back_text_h - 4
+
+        back_text_front_color = self.PURPLE
+        if (
+            x + back_text_x <= mouse_x <= x + back_text_x + back_text_w
+            and y + back_text_y <= mouse_y <= y + back_text_y + back_text_h
+        ):
+            back_text_front_color = self.NEON_PINK
+
+        back_text_2 = self.font_front_game_over.render(
+            "BACK", True, back_text_front_color
+        )
+
+        self.home_page["back_game_over"] = (
+            (x + back_text_x, x + back_text_x + back_text_w),
+            (y + back_text_y, y + back_text_y + back_text_h),
+        )
+
+        pop_up_surface.blit(back_text_1, (back_text_x, back_text_y))
+        pop_up_surface.blit(back_text_2, (back_text_x, back_text_y))
+
+        self.virtual_screen.blit(pop_up_surface, (x, y))
+
+    def _render_game(self, mouse_x: int, mouse_y: int) -> None:
+        self.virtual_screen.blit(self.map_surface, (0, 0))
+        self._draw_game_status()
+        self._draw_pac_gums()
+        self._draw_entities()
+
+        if self.state == GameState.STARTING_LEVEL:
+            pygame.mixer.music.stop()
+            if not self.countdown_play:
+                self.countdown_play = True
+                self.sound["start"].set_volume(0.2)
+                self.sound["start"].play()
+            self._render_starting_level()
+
+            return
+
+        if self.state == GameState.GAME_OVER:
+            self._render_game_over(mouse_x, mouse_y)
+
+        elif self.state == GameState.PLAYING:
+
+            if self.playing_state == PlayingState.DEATH:
+                if not self.music_load:
+                    pygame.mixer.music.stop()
+                    self.sound["pacman_death"].set_volume(0.5)
+                    self.sound["pacman_death"].play()
+                    self.music_load = True
+
+                if self._render_pac_man_dying():
+                    self.music_load = False
+
+                    if self.lives <= 0:
+                        self.state = GameState.GAME_OVER
+                return
+
+            if self.playing_state == PlayingState.POWER:
+                if not self.music_load:
+                    pygame.mixer.music.stop()
+                    pygame.mixer.music.load("assets/media/power_pellet.wav")
+                    pygame.mixer.music.set_volume(0.5)
+                    pygame.mixer.music.play(-1)
+                    self.music_load = True
+                current_time = pygame.time.get_ticks()
+
+                if current_time > self.power_time + 6000:
+                    self.music_load = False
+                    self.playing_state = PlayingState.RETREATE
+
+                    for ghost in self.ghosts.values():
+                        ghost.speed = ghost.speed * 2
+            else:
+                pygame.mixer.music.stop()
+
+            self._move_entities()
+
+            if self._eat_pac_gums():
+                self.score += self.config.points_per_pacgum
+
+                if len(self.pac_gums_coord) % 2:
+                    self.sound["munch_1"].play()
+                else:
+                    self.sound["munch_2"].play()
+
+            if self._eat_super_pac_gums():
+                self.score += self.config.points_per_super_pacgum
+
+                self.playing_state = PlayingState.POWER
+                self.music_load = False
+                self.power_time = pygame.time.get_ticks()
+
+                for ghost in self.ghosts.values():
+                    ghost.speed = ghost.speed // 2
+
+            if self._is_pac_man_catch():
+                if self.playing_state == PlayingState.POWER:
+                    # EAT GHOST ->
+                    pass
+                else:
+                    self.playing_state = PlayingState.DEATH
+                    self.music_load = False
+                    self.death_time = pygame.time.get_ticks()
+                    self.lives -= 1
+
+    # A Modifier pour afficher une page propre, commande de base, Regles,
+    # Cheat Code
+
+    def _draw_command(
+        self, mouse_x: int, mouse_y: int, height_available: int
+    ) -> None:
+        width, height = (self.WIDTH / 1.2), (height_available - 40) // 3
+
+        x, y = (self.WIDTH - width) // 2, (
+            self.HEIGHT - height_available
+        ) // 2 + 20
+
+        color = self.PURPLE
+
+        if x <= mouse_x <= x + width and y <= mouse_y <= y + height:
+            color = self.NEON_PINK
+
+        pygame.draw.rect(
+            self.virtual_screen,
+            color,
+            pygame.Rect(x, y, width, height),
+            1,
+        )
+
+        pygame.draw.line(
+            self.virtual_screen,
+            color,
+            (self.WIDTH // 2, y + 14),
+            (self.WIDTH // 2, y + height - 14),
+            2,
+        )
+
+    def _draw_instructions(
+        self, mouse_x: int, mouse_y: int, height_available: int
+    ) -> None:
+        width, height = (self.WIDTH / 1.2), (height_available - 40) // 2
+
+        x, y = (self.WIDTH - width) // 2, (
+            self.HEIGHT - height_available
+        ) // 3 + height + 40
+
+        color = self.PURPLE
+
+        if x <= mouse_x <= x + width and y <= mouse_y <= y + height:
+            color = self.NEON_PINK
+
+        pygame.draw.rect(
+            self.virtual_screen,
+            color,
+            pygame.Rect(x, y, width, height),
+            1,
+        )
+
+    def _draw_command_instructions(self, mouse_x: int, mouse_y: int) -> None:
+        w, h = self.virtual_screen.get_size()
+
+        title_text_1 = self.font_back.render("Instructions", True, self.GRAY)
+        title_text_2 = self.font_front.render(
+            "Instructions", True, self.NEON_PINK
+        )
+
+        coord = ((w - title_text_1.get_width()) // 2, 20)
+
+        self.virtual_screen.blit(title_text_1, coord)
+        self.virtual_screen.blit(title_text_2, coord)
+
+        back_text_1 = self.font_back_game_over.render("Back", True, self.GRAY)
+        back_text_2 = self.font_front_game_over.render(
+            "Back", True, self.PURPLE
+        )
+        text_width, text_height = back_text_1.get_size()
+
+        coord = (
+            (w - back_text_1.get_width()) // 2,
+            h - back_text_1.get_height() - 20,
+        )
+
+        (
+            self.home_page["Back"][0],
+            self.home_page["Back"][1],
+        ) = (
+            coord[0],
+            coord[0] + text_width,
+        ), (
+            coord[1],
+            coord[1] + text_height,
+        )
+
+        if (coord[0] <= mouse_x <= coord[0] + text_width) and (
+            coord[1] <= mouse_y <= coord[1] + text_height
+        ):
+            back_text_2 = self.font_front_game_over.render(
+                "Back", True, self.NEON_PINK
+            )
+
+        else:
+            self.home_page["Back"][2] = False
+
+        self.virtual_screen.blit(back_text_1, coord)
+        self.virtual_screen.blit(back_text_2, coord)
+
+        height_available = (
+            int(self.HEIGHT) - title_text_1.get_height() - text_height - 60
+        )
+
+        self._draw_command(mouse_x, mouse_y, height_available)
+        self._draw_instructions(mouse_x, mouse_y, height_available)
+
+    def _render_instructions(self, mouse_x: int, mouse_y: int) -> None:
+        self._draw_command_instructions(mouse_x, mouse_y)
+
+    def _draw_home_text(self, mouse_x: int, mouse_y: int) -> int:
+        title_img = self.img["title"]
+
+        w, h = title_img.get_size()
+        x, y = (self.WIDTH - w) // 2, -40
+
+        offset_y = 0
+
+        hover = False
+
+        for key in self.home_page["text"].keys():
+            coord = (40, h + 120 + offset_y)
+
+            text_1 = self.font_back.render(key, True, self.GRAY)
+            text_2 = self.font_front.render(key, True, self.PACMAN_YELLOW)
+
+            text_width, text_height = (
+                text_1.get_width(),
+                text_1.get_height(),
+            )
+
+            self.home_page["text"][key][0], self.home_page["text"][key][1] = (
+                coord[0],
+                coord[0] + text_width,
+            ), (coord[1], coord[1] + text_height)
+
+            if (coord[0] <= mouse_x <= coord[0] + text_width) and (
+                coord[1] <= mouse_y <= coord[1] + text_height
+            ):
+                text_1 = self.font_back.render(key, True, self.NEON_BLUE)
+                if key == "Exit" and not self.home_page["text"][key][2]:
+                    self.sound["munch_2"].play()
+                    self.home_page["text"][key][2] = True
+                else:
+                    if not self.home_page["text"][key][2]:
+                        self.sound["munch_1"].play()
+                        self.home_page["text"][key][2] = True
+                hover = True
+
+            self.virtual_screen.blit(text_1, coord)
+            self.virtual_screen.blit(text_2, coord)
+
+            offset_y += 80
+
+        self.virtual_screen.blit(title_img, (x, y))
+
+        if not hover:
+            for value in self.home_page["text"].values():
+                value[2] = False
+
+        return h
+
+    def _draw_home_animation(self, h: int) -> None:
+        offset_x = 0
+
+        if not self.home_page["counter"] % 2:
+            width, height = self.home_page[1]["ghosts"][0].get_size()
+
+            for ghost in self.home_page[1]["ghosts"]:
+                if isinstance(ghost, pygame.Surface):
+                    x, y = self.home_page["pos_x"] + offset_x, h - height
+                    self.virtual_screen.blit(ghost, (x, y))
+
+                    offset_x += width + 10
+
+            self.home_page["anim_counter"] += 1
+            anim_frame = self.home_page["anim_counter"]
+            pac_man_img = self.home_page[1]["pac_man"][(anim_frame // 4) % 4]
+
+            pac_man = pygame.transform.scale(pac_man_img, (width, height))
+
+            self.virtual_screen.blit(
+                pac_man,
+                (self.home_page["pos_x"] + offset_x + 20, h - height),
+            )
+            self.home_page["pos_x"] += 2
+
+            if self.home_page["pos_x"] == self.virtual_screen.get_width():
+                self.home_page["counter"] += 1
+                self.home_page["pos_x"] = -self.home_page["start_x"]
+        else:
+            width, height = self.home_page[1]["ghosts"][0].get_size()
+
+            self.home_page["anim_counter"] += 1
+            anim_frame = self.home_page["anim_counter"]
+            pac_man_img = self.home_page[1]["pac_man"][(anim_frame // 4) % 4]
+
+            pac_man = pygame.transform.scale(pac_man_img, (width, height))
+
+            self.virtual_screen.blit(
+                pac_man,
+                (self.home_page["pos_x"], h - height),
+            )
+
+            offset_x = width + 20
+
+            for i in range(4):
+                ghost_scared = pygame.transform.scale(
+                    self.home_page[2]["scared"][(anim_frame // 8) % 2],
+                    (width, height),
+                )
+                self.virtual_screen.blit(
+                    ghost_scared,
+                    (self.home_page["pos_x"] + offset_x, h - height),
+                )
+
+                offset_x += width + 10
+
+            self.home_page["pos_x"] += 2
+
+            if self.home_page["pos_x"] == self.virtual_screen.get_width():
+                self.home_page["counter"] += 1
+                self.home_page["pos_x"] = -self.home_page["start_x"]
+
+    def _render_home(self, mouse_x: int, mouse_y: int) -> None:
+        h = self._draw_home_text(mouse_x, mouse_y)
+        self._draw_home_animation(h)
+
+    def _render(self, mouse_x: int, mouse_y: int) -> None:
+        self.virtual_screen.fill(self.BLACK)
+
+        if self.state == GameState.MENU:
+            self._render_home(mouse_x, mouse_y)
+        elif self.state == GameState.INFO:
+            self._render_instructions(mouse_x, mouse_y)
+        else:
+            self._render_game(mouse_x, mouse_y)
+
     def _manage_events(
         self, events: List[Event], mouse_x: int, mouse_y: int
     ) -> bool:
@@ -364,8 +1025,10 @@ class GameEngine:
                                 if key == "Start Game":
                                     self.state = GameState.STARTING_LEVEL
                                     self.current_level = 1
-                                    self._generate_map()
                                     self.score = 0
+                                    self.lives = self.config.lives
+                                    self.countdown_play = False
+                                    self._generate_map()
 
                                 elif key == "View Highscores":
                                     self.state = GameState.SCORE
@@ -377,13 +1040,13 @@ class GameEngine:
             elif self.state == GameState.PLAYING:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_UP:
-                        self.player.set_direction(Directions.UP)
+                        self.pac_man.set_direction(Directions.UP)
                     elif event.key == pygame.K_RIGHT:
-                        self.player.set_direction(Directions.RIGHT)
+                        self.pac_man.set_direction(Directions.RIGHT)
                     elif event.key == pygame.K_LEFT:
-                        self.player.set_direction(Directions.LEFT)
+                        self.pac_man.set_direction(Directions.LEFT)
                     elif event.key == pygame.K_DOWN:
-                        self.player.set_direction(Directions.DOWN)
+                        self.pac_man.set_direction(Directions.DOWN)
 
             elif self.state == GameState.PAUSED:
                 pass
@@ -392,7 +1055,16 @@ class GameEngine:
                 pass
 
             elif self.state == GameState.GAME_OVER:
-                pass
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        x_min, x_max = self.home_page["back_game_over"][0]
+                        y_min, y_max = self.home_page["back_game_over"][1]
+
+                        if (x_min <= mouse_x <= x_max) and (
+                            y_min <= mouse_y <= y_max
+                        ):
+                            self.state = GameState.MENU
+
             elif self.state == GameState.INFO:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
@@ -410,11 +1082,68 @@ class GameEngine:
                 current_time - self.countdown_start_time
                 >= self.countdown_duration
             ):
-                self.player.speed = 2
+                self.pac_man.speed = 2
 
                 for ghost in self.ghosts.values():
                     ghost.speed = 2
 
                 self.state = GameState.PLAYING
-                self.player.set_direction(Directions.UP)
+                self.playing_state = PlayingState.RETREATE
+                self.pac_man.set_direction(Directions.UP)
         return True
+
+    def run(self) -> None:
+        os.environ["SDL_VIDEO_CENTERED"] = "1"
+
+        print("CHEMIN DE PYGAME :", pygame.__file__)
+
+        pygame.init()
+        pygame.mixer.init()
+
+        self.real_screen = pygame.display.set_mode(
+            (800, 800), pygame.RESIZABLE
+        )
+
+        self.virtual_screen = pygame.Surface((800, 800))
+
+        self._init_game()
+
+        clock = pygame.time.Clock()
+        running = True
+
+        pygame.mixer.music.load("assets/media/game_start.wav")
+        pygame.mixer.music.set_volume(0.5)
+        pygame.mixer.music.play(1)
+
+        while running:
+            clock.tick(60)
+
+            new_w, new_h, offset_x, offset_y, v_mouse_x, v_mouse_y = (
+                self._get_scale()
+            )
+            running = self._manage_events(
+                pygame.event.get(), v_mouse_x, v_mouse_y
+            )
+
+            self._render(v_mouse_x, v_mouse_y)
+
+            scaled_surface = pygame.transform.scale(
+                self.virtual_screen, (new_w, new_h)
+            )
+
+            self.real_screen.fill((0, 0, 0))
+            self.real_screen.blit(scaled_surface, (offset_x, offset_y))
+
+            pygame.draw.rect(
+                self.real_screen,
+                self.PACMAN_YELLOW,
+                pygame.Rect(
+                    offset_x,
+                    offset_y + 2,
+                    new_w,
+                    new_h - 4,
+                ),
+                3,
+            )
+
+            pygame.display.flip()

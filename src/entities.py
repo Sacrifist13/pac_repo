@@ -314,6 +314,18 @@ class PacMan(Entity):
     def set_direction(self, direction: Directions) -> None:
         self.next_direction = direction
 
+    def reset_pos(self) -> None:
+        self.grid_x = self.starting_x
+        self.grid_y = self.starting_y
+
+        self.pixel_x = self.grid_x * self.cell_size
+        self.pixel_y = self.grid_y * self.cell_size
+
+        self.target_x = self.pixel_x
+        self.target_y = self.pixel_y
+
+        self.direction = None
+
     def move(self, map: List[List[List[int]]]) -> None:
         if self.speed == 0:
             return
@@ -364,18 +376,6 @@ class PacMan(Entity):
             elif self.pixel_y > self.target_y:
                 self.pixel_y = max(self.pixel_y - self.speed, self.target_y)
 
-    def reset_pos(self) -> None:
-        self.grid_x = self.starting_x
-        self.grid_y = self.starting_y
-
-        self.pixel_x = self.grid_x * self.cell_size
-        self.pixel_y = self.grid_y * self.cell_size
-
-        self.target_x = self.pixel_x
-        self.target_y = self.target_y
-
-        self.direction = None
-
     def draw_on_surface(
         self,
         surface: pygame.Surface,
@@ -399,6 +399,8 @@ class PacMan(Entity):
                 or self.direction == Directions.LEFT
             ):
                 i = (self.pixel_x // 8) % 4
+            else:
+                i = 0
 
             current_img = self.img["pac_" + str(i + 1)]
 
