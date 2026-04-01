@@ -28,9 +28,13 @@ class GameEngine:
         self.music_load = False
         self.death_time: int = 0
         self.power_time: int = 0
+        self.time_score_eating: int = 0
+        self.score_eating_coord: Tuple[int, int] = (0, 0)
+        self.score_eating: int = 0
         self.current_level: int = 1
         self.score: int = 0
         self.lives: int = 0
+        self.ghosts_eat: int = 0
 
     def _get_scale(self) -> Any:
         win_w, win_h = self.real_screen.get_size()
@@ -76,7 +80,6 @@ class GameEngine:
         loader = Loader()
         self.config = loader.load_config(sys.argv)
 
-        # self.lives = self.config.lives
         self.lives = self.config.lives
 
         assets_dir = Path("assets")
@@ -247,6 +250,18 @@ class GameEngine:
             )
         )
 
+        self.game_img["eaten"] = {
+            key: pygame.transform.scale(
+                img,
+                (
+                    cell_size // 2,
+                    cell_size // 2,
+                ),
+            )
+            for key, img in self.img.items()
+            if key.startswith("eaten_")
+        }
+
     def _load_map_elements(
         self, logo: List[Tuple[int, int]], margin: int = 80
     ) -> None:
@@ -304,6 +319,7 @@ class GameEngine:
                 cell_size,
                 self.game_img[name],
                 self.game_img["scared"],
+                self.game_img["eaten"],
             )
 
         coord_filled: List[Tuple[int, int]] = [(mid_y, mid_x)]
@@ -393,6 +409,34 @@ class GameEngine:
         self._load_map_elements(logo)
         self.countdown_start_time = pygame.time.get_ticks()
         self.countdown_duration = 5000
+
+        return True
+
+    def _draw_time_left(self) -> bool:
+        current_time = pygame.time.get_ticks()
+
+        time_left_s = (
+            int(
+                self.level_starting_time
+                + (self.config.level_max_time * 1000)
+                - current_time
+            )
+            // 1000
+        )
+
+        if time_left_s <= 0:
+            return False
+
+        time_left_text = self.font_basic.render(
+            str(time_left_s), True, self.NEON_PINK
+        )
+
+        time_left_w, time_left_h = time_left_text.get_size()
+        time_x, time_y = (
+            self.WIDTH - time_left_w
+        ) // 2, self.HEIGHT - time_left_h - 20
+
+        self.virtual_screen.blit(time_left_text, (time_x, time_y))
 
         return True
 
@@ -549,6 +593,22 @@ class GameEngine:
 
         return False
 
+    def _draw_score_eating(self) -> None:
+        current_time = pygame.time.get_ticks()
+
+        if current_time < self.time_score_eating + 1000:
+            y, x = self.score_eating_coord
+
+            points_str = self.font_basic.render(
+                str(self.score_eating), True, self.NEON_PINK
+            )
+            points_h = points_str.get_height()
+            points_x, points_y = (
+                self.game_offset_x + x,
+                (self.game_offset_y + y) + points_h // 2,
+            )
+            self.virtual_screen.blit(points_str, (points_x, points_y))
+
     def _is_pac_man_catch(self) -> bool:
         if self.pac_man.mode == Mode.INVICIBLE:
             return False
@@ -566,8 +626,19 @@ class GameEngine:
                 )
                 if pac_rect.colliderect(ghost_rect):
                     if self.playing_state == PlayingState.POWER:
+                        self.sound["eat_ghost"].play()
                         ghost.mode = Mode.EAT
                         ghost.speed = 2
+                        self.score_eating = self.config.points_per_ghost * (
+                            1 + self.ghosts_eat
+                        )
+                        self.score += self.score_eating
+                        self.ghosts_eat += 1
+                        self.time_score_eating = pygame.time.get_ticks()
+                        self.score_eating_coord = (
+                            ghost.pixel_y,
+                            ghost.pixel_x,
+                        )
                     return True
 
         return False
@@ -578,6 +649,17 @@ class GameEngine:
             (self.WIDTH, self.HEIGHT), pygame.SRCALPHA
         )
         blur_surface.fill((0, 0, 0, 160))
+
+        time_left_text = self.font_basic.render(
+            str(self.config.level_max_time), True, self.NEON_PINK
+        )
+
+        time_left_w, time_left_h = time_left_text.get_size()
+        time_x, time_y = (
+            self.WIDTH - time_left_w
+        ) // 2, self.HEIGHT - time_left_h - 20
+
+        self.virtual_screen.blit(time_left_text, (time_x, time_y))
         self.virtual_screen.blit(blur_surface, (0, 0))
 
         current_time = pygame.time.get_ticks()
@@ -706,6 +788,8 @@ class GameEngine:
         self._draw_pac_gums()
         self._draw_entities()
 
+        current_time = pygame.time.get_ticks()
+
         if self.state == GameState.STARTING_LEVEL:
             pygame.mixer.music.stop()
             if not self.countdown_play:
@@ -721,6 +805,9 @@ class GameEngine:
 
         elif self.state == GameState.PLAYING:
 
+            if not self._draw_time_left():
+                self.state = GameState.GAME_OVER
+
             if self.playing_state == PlayingState.DEATH:
                 if not self.music_load:
                     pygame.mixer.music.stop()
@@ -729,6 +816,9 @@ class GameEngine:
                     self.music_load = True
 
                 if self._render_pac_man_dying():
+                    self.pac_man.dying_time = current_time
+                    self.pac_man.mode = Mode.INVICIBLE
+
                     self.music_load = False
 
                     if self.lives <= 0:
@@ -742,17 +832,23 @@ class GameEngine:
                     pygame.mixer.music.set_volume(0.5)
                     pygame.mixer.music.play(-1)
                     self.music_load = True
-                current_time = pygame.time.get_ticks()
+
+                self._draw_score_eating()
 
                 if current_time > self.power_time + 6000:
                     self.music_load = False
                     self.playing_state = PlayingState.RETREATE
+                    self.ghosts_eat = 0
 
                     for ghost in self.ghosts.values():
                         if ghost.mode == Mode.NORMAL:
                             ghost.speed = 2
             else:
                 pygame.mixer.music.stop()
+
+            if self.pac_man.mode == Mode.INVICIBLE:
+                if current_time > self.pac_man.dying_time + 3000:
+                    self.pac_man.mode = Mode.NORMAL
 
             self._move_entities()
 
@@ -769,19 +865,18 @@ class GameEngine:
 
                 self.playing_state = PlayingState.POWER
                 self.music_load = False
-                self.power_time = pygame.time.get_ticks()
+                self.power_time = current_time
 
                 for ghost in self.ghosts.values():
                     ghost.speed = 1
 
             if self._is_pac_man_catch():
                 if self.playing_state == PlayingState.POWER:
-
                     pass
                 else:
                     self.playing_state = PlayingState.DEATH
                     self.music_load = False
-                    self.death_time = pygame.time.get_ticks()
+                    self.death_time = current_time
                     self.lives -= 1
 
     def _draw_command(
@@ -1202,6 +1297,7 @@ class GameEngine:
                 self.state = GameState.PLAYING
                 self.playing_state = PlayingState.RETREATE
                 self.pac_man.set_direction(Directions.UP)
+                self.level_starting_time = pygame.time.get_ticks()
         return True
 
     def run(self) -> None:
@@ -1245,17 +1341,5 @@ class GameEngine:
 
             self.real_screen.fill((0, 0, 0))
             self.real_screen.blit(scaled_surface, (offset_x, offset_y))
-
-            # pygame.draw.rect(
-            #     self.real_screen,
-            #     self.PACMAN_YELLOW,
-            #     pygame.Rect(
-            #         offset_x,
-            #         offset_y + 2,
-            #         new_w,
-            #         new_h - 4,
-            #     ),
-            #     3,
-            # )
 
             pygame.display.flip()

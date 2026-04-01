@@ -80,14 +80,16 @@ class Ghost(Entity, ABC):
         cell_size: int,
         img: Dict[str, pygame.Surface],
         scared_img: List[pygame.Surface],
+        eaten_img: Dict[str, pygame.Surface],
     ) -> None:
         super().__init__(name, grid_x, grid_y, speed, cell_size, img)
         self.scared_img = scared_img
+        self.eaten_img = eaten_img
         self.path_to_start: List[Tuple[int, int]] | None = None
 
     def _calculate_f(
         self, target_grid_x: int, target_grid_y: int, x: int, y: int, g: int
-    ):
+    ) -> int:
         h = abs(target_grid_x - x) + abs(target_grid_y - y)
 
         return h + g
@@ -97,7 +99,7 @@ class Ghost(Entity, ABC):
         map: List[List[List[int]]],
         target_grid_x: int,
         target_grid_y: int,
-    ) -> List[Tuple[int, int]]:
+    ) -> Any:
 
         f_init = self._calculate_f(
             target_grid_x, target_grid_y, self.grid_x, self.grid_y, 0
@@ -291,19 +293,37 @@ class Ghost(Entity, ABC):
 
         directions_str = ["up", "down", "right", "left"]
 
-        if playing_state == PlayingState.POWER:
-            current_img = self.scared_img[(self.pixel_x // 4) % 2]
-        else:
-            if self.speed == 0 or self.direction is None:
-                current_img = (
-                    self.img[self.name + "_right"]
-                    if self.grid_x == 0
-                    else self.img[self.name + "_left"]
-                )
-            else:
-                current_img = self.img[
-                    self.name + "_" + directions_str[self.direction.value - 1]
+        if self.mode == Mode.EAT:
+            if isinstance(self.direction, Directions):
+                current_img = self.eaten_img[
+                    "eaten_" + directions_str[self.direction.value - 1]
                 ]
+            else:
+                current_img = self.eaten_img["eaten_up"]
+        else:
+            if playing_state == PlayingState.POWER:
+                if (
+                    self.direction == Directions.UP
+                    or self.direction == Directions.DOWN
+                ):
+                    i = (self.pixel_y // 6) % 2
+                else:
+                    i = (self.pixel_x // 6) % 2
+
+                current_img = self.scared_img[i]
+            else:
+                if self.speed == 0 or self.direction is None:
+                    current_img = (
+                        self.img[self.name + "_right"]
+                        if self.grid_x == 0
+                        else self.img[self.name + "_left"]
+                    )
+                else:
+                    current_img = self.img[
+                        self.name
+                        + "_"
+                        + directions_str[self.direction.value - 1]
+                    ]
 
         px = (
             offset_x
@@ -334,9 +354,10 @@ class Blinky(Ghost):
         cell_size: int,
         img: Dict[str, pygame.Surface],
         scared_img: List[pygame.Surface],
+        eaten_img: Dict[str, pygame.Surface],
     ) -> None:
         super().__init__(
-            name, grid_x, grid_y, speed, cell_size, img, scared_img
+            name, grid_x, grid_y, speed, cell_size, img, scared_img, eaten_img
         )
 
     def move(
@@ -355,9 +376,10 @@ class Clyde(Ghost):
         cell_size: int,
         img: Dict[str, pygame.Surface],
         scared_img: List[pygame.Surface],
+        eaten_img: Dict[str, pygame.Surface],
     ) -> None:
         super().__init__(
-            name, grid_x, grid_y, speed, cell_size, img, scared_img
+            name, grid_x, grid_y, speed, cell_size, img, scared_img, eaten_img
         )
 
     def move(
@@ -376,9 +398,10 @@ class Inky(Ghost):
         cell_size: int,
         img: Dict[str, pygame.Surface],
         scared_img: List[pygame.Surface],
+        eaten_img: Dict[str, pygame.Surface],
     ) -> None:
         super().__init__(
-            name, grid_x, grid_y, speed, cell_size, img, scared_img
+            name, grid_x, grid_y, speed, cell_size, img, scared_img, eaten_img
         )
 
     def move(
@@ -397,9 +420,10 @@ class Pinky(Ghost):
         cell_size: int,
         img: Dict[str, pygame.Surface],
         scared_img: List[pygame.Surface],
+        eaten_img: Dict[str, pygame.Surface],
     ) -> None:
         super().__init__(
-            name, grid_x, grid_y, speed, cell_size, img, scared_img
+            name, grid_x, grid_y, speed, cell_size, img, scared_img, eaten_img
         )
 
     def move(
@@ -419,6 +443,7 @@ class PacMan(Entity):
         img: Dict[str, pygame.Surface],
     ) -> None:
         super().__init__(name, grid_x, grid_y, speed, cell_size, img)
+        self.dying_time: int = 0
 
         self.rotation = {
             Directions.UP: 90,
@@ -503,6 +528,14 @@ class PacMan(Entity):
         current_img: pygame.Surface | pygame.surface.Surface = self.img[
             "pac_2"
         ]
+
+        if self.mode == Mode.INVICIBLE:
+            current_time = pygame.time.get_ticks()
+
+            j = (current_time // 10) % 2
+
+            if j % 2:
+                return
 
         if self.moving:
             if (
