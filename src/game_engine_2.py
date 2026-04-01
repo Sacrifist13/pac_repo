@@ -6,7 +6,7 @@ from pygame.event import Event
 from typing import List, Dict, Any, Tuple
 from .loader import Loader
 from .map_generator import MapGenerator
-from .enums_class import GameState, Directions, PlayingState
+from .enums_class import GameState, Directions, PlayingState, Mode
 from .entities import PacMan, Ghost, Blinky, Clyde, Inky, Pinky
 
 
@@ -500,11 +500,22 @@ class GameEngine:
 
         if self.playing_state == PlayingState.POWER:
             for ghost in self.ghosts.values():
-                ghost.move_random(self.map)
+                if ghost.mode == Mode.NORMAL:
+                    ghost.move_random(self.map)
+                elif ghost.mode == Mode.EAT:
+                    if ghost.move_to_start_pos(self.map):
+                        ghost.mode = Mode.NORMAL
+                        ghost.speed = 1
+
         else:
             # ghost.move() quand les algos des fantomes seront termines
             for ghost in self.ghosts.values():
-                ghost.move_random(self.map)
+                if ghost.mode == Mode.NORMAL:
+                    ghost.move_random(self.map)
+                elif ghost.mode == Mode.EAT:
+                    if ghost.move_to_start_pos(self.map):
+                        ghost.mode = Mode.NORMAL
+                        ghost.speed = 2
 
     def _eat_pac_gums(self) -> bool:
         cell_size = self.pac_man.cell_size
@@ -539,6 +550,9 @@ class GameEngine:
         return False
 
     def _is_pac_man_catch(self) -> bool:
+        if self.pac_man.mode == Mode.INVICIBLE:
+            return False
+
         cell_size = self.pac_man.cell_size
 
         pac_rect = self._get_hitbox(
@@ -546,12 +560,15 @@ class GameEngine:
         )
 
         for ghost in self.ghosts.values():
-            ghost_rect = self._get_hitbox(
-                ghost.pixel_x, ghost.pixel_y, cell_size
-            )
-
-            if pac_rect.colliderect(ghost_rect):
-                return True
+            if ghost.mode == Mode.NORMAL:
+                ghost_rect = self._get_hitbox(
+                    ghost.pixel_x, ghost.pixel_y, cell_size
+                )
+                if pac_rect.colliderect(ghost_rect):
+                    if self.playing_state == PlayingState.POWER:
+                        ghost.mode = Mode.EAT
+                        ghost.speed = 2
+                    return True
 
         return False
 
@@ -732,7 +749,8 @@ class GameEngine:
                     self.playing_state = PlayingState.RETREATE
 
                     for ghost in self.ghosts.values():
-                        ghost.speed = ghost.speed * 2
+                        if ghost.mode == Mode.NORMAL:
+                            ghost.speed = 2
             else:
                 pygame.mixer.music.stop()
 
@@ -754,20 +772,17 @@ class GameEngine:
                 self.power_time = pygame.time.get_ticks()
 
                 for ghost in self.ghosts.values():
-                    ghost.speed = ghost.speed // 2
+                    ghost.speed = 1
 
             if self._is_pac_man_catch():
                 if self.playing_state == PlayingState.POWER:
-                    # EAT GHOST ->
+
                     pass
                 else:
                     self.playing_state = PlayingState.DEATH
                     self.music_load = False
                     self.death_time = pygame.time.get_ticks()
                     self.lives -= 1
-
-    # A Modifier pour afficher une page propre, commande de base, Regles,
-    # Cheat Code
 
     def _draw_command(
         self, mouse_x: int, mouse_y: int, height_available: int
@@ -776,7 +791,7 @@ class GameEngine:
 
         x, y = (self.WIDTH - width) // 2, (
             self.HEIGHT - height_available
-        ) // 2 + 20
+        ) // 2 + 60
 
         color = self.PURPLE
 
@@ -798,14 +813,76 @@ class GameEngine:
             2,
         )
 
-    def _draw_instructions(
+        basic_instructions_text_1 = self.font_back_game_over.render(
+            "Basic commands", True, self.GRAY
+        )
+        basic_instructions_text_2 = self.font_front_game_over.render(
+            "Basic commands", True, color
+        )
+
+        cheat_instructions_text_1 = self.font_back_game_over.render(
+            "Cheat commands", True, self.GRAY
+        )
+        cheat_instructions_text_2 = self.font_front_game_over.render(
+            "Cheat commands", True, color
+        )
+
+        basic_w, basic_h = basic_instructions_text_1.get_size()
+        spe_w, spe_h = cheat_instructions_text_1.get_size()
+
+        basic_x = x + (width // 2 - basic_w) // 2
+        spe_x = x + width // 2 + (width // 2 - spe_w) // 2
+
+        self.virtual_screen.blit(basic_instructions_text_1, (basic_x, y + 10))
+        self.virtual_screen.blit(basic_instructions_text_2, (basic_x, y + 10))
+
+        self.virtual_screen.blit(cheat_instructions_text_1, (spe_x, y + 10))
+        self.virtual_screen.blit(cheat_instructions_text_2, (spe_x, y + 10))
+
+        offset_y = 20
+
+        commands = {
+            "up": self.font_basic.render("↑  up", True, color),
+            "down": self.font_basic.render("↓  down", True, color),
+            "left": self.font_basic.render("←  left", True, color),
+            "right": self.font_basic.render("→  right", True, color),
+        }
+
+        command_w, command_h = commands["right"].get_size()
+        command_x, command_y = (
+            x + (width // 2 - command_w) // 2,
+            y + basic_h + 30,
+        )
+
+        for text in commands.values():
+            self.virtual_screen.blit(text, (command_x, command_y))
+            command_y += offset_y + command_h
+
+        cheats = {
+            "speed": self.font_basic.render("s:  Speed * 2", True, color),
+            "freeze": self.font_basic.render("f:  Freeze ghosts", True, color),
+            "next": self.font_basic.render("l:  Level skip", True, color),
+            "power": self.font_basic.render("p:  Instant power", True, color),
+        }
+
+        cheat_w, cheat_h = cheats["freeze"].get_size()
+        cheat_x, cheat_y = (
+            x + width // 2 + (width // 2 - cheat_w) // 2,
+            y + basic_h + 30,
+        )
+
+        for text in cheats.values():
+            self.virtual_screen.blit(text, (cheat_x, cheat_y))
+            cheat_y += offset_y + cheat_h
+
+    def _draw_rules(
         self, mouse_x: int, mouse_y: int, height_available: int
     ) -> None:
-        width, height = (self.WIDTH / 1.2), (height_available - 40) // 2
+        width, height = int(self.WIDTH / 1.2), height_available // 2 + 20
 
         x, y = (self.WIDTH - width) // 2, (
             self.HEIGHT - height_available
-        ) // 3 + height + 40
+        ) // 3 + height - 20
 
         color = self.PURPLE
 
@@ -818,6 +895,41 @@ class GameEngine:
             pygame.Rect(x, y, width, height),
             1,
         )
+
+        title_text_1 = self.font_back_game_over.render(
+            "Rules", True, self.GRAY
+        )
+        title_text_2 = self.font_front_game_over.render("Rules", True, color)
+
+        title_w, title_h = title_text_1.get_size()
+        title_x, title_y = (self.WIDTH - title_w) // 2, y + 10
+
+        self.virtual_screen.blit(title_text_1, (title_x, title_y))
+        self.virtual_screen.blit(title_text_2, (title_x, title_y))
+
+        rules = (
+            "- Objective: Eat all pacgums to win the level.\n\n"
+            "- Victory: Complete all 10 levels to win the \n"
+            "  game.\n\n"
+            f"- Lives: You start with {self.config.lives} lives.\n\n"
+            "- Danger: Losing a life if touched by a ghost.\n\n"
+            "- Power-up: Super-pacgums make ghosts edible \n  "
+            "for a short time.\n\n"
+            f"- Time: You have a {self.config.level_max_time}-second limit "
+            "per level.\n\n"
+            "- Controls: Use Arrow keys to move.\n\n"
+            "- Pause: Press space to pause or resume at \n  any time."
+        )
+
+        text_rules = self.font_basic.render(rules, True, color)
+
+        text_rules_w, text_rules_h = text_rules.get_size()
+        text_rules_x, text_rules_y = (
+            x + (width - text_rules_w) // 2,
+            y + title_h + 15,
+        )
+
+        self.virtual_screen.blit(text_rules, (text_rules_x, text_rules_y))
 
     def _draw_command_instructions(self, mouse_x: int, mouse_y: int) -> None:
         w, h = self.virtual_screen.get_size()
@@ -872,7 +984,7 @@ class GameEngine:
         )
 
         self._draw_command(mouse_x, mouse_y, height_available)
-        self._draw_instructions(mouse_x, mouse_y, height_available)
+        self._draw_rules(mouse_x, mouse_y, height_available)
 
     def _render_instructions(self, mouse_x: int, mouse_y: int) -> None:
         self._draw_command_instructions(mouse_x, mouse_y)
@@ -1134,16 +1246,16 @@ class GameEngine:
             self.real_screen.fill((0, 0, 0))
             self.real_screen.blit(scaled_surface, (offset_x, offset_y))
 
-            pygame.draw.rect(
-                self.real_screen,
-                self.PACMAN_YELLOW,
-                pygame.Rect(
-                    offset_x,
-                    offset_y + 2,
-                    new_w,
-                    new_h - 4,
-                ),
-                3,
-            )
+            # pygame.draw.rect(
+            #     self.real_screen,
+            #     self.PACMAN_YELLOW,
+            #     pygame.Rect(
+            #         offset_x,
+            #         offset_y + 2,
+            #         new_w,
+            #         new_h - 4,
+            #     ),
+            #     3,
+            # )
 
             pygame.display.flip()

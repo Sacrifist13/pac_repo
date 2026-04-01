@@ -1,8 +1,9 @@
 import pygame
 import random
-from typing import Dict, List
+import heapq
+from typing import Dict, List, Tuple, Any
 from abc import ABC, abstractmethod
-from .enums_class import Directions, PlayingState
+from .enums_class import Directions, PlayingState, Mode
 
 
 class Entity(ABC):
@@ -16,6 +17,8 @@ class Entity(ABC):
         img: Dict[str, pygame.Surface],
     ) -> None:
         self.name = name
+
+        self.mode = Mode.NORMAL
 
         self.starting_x = grid_x
         self.starting_y = grid_y
@@ -80,6 +83,119 @@ class Ghost(Entity, ABC):
     ) -> None:
         super().__init__(name, grid_x, grid_y, speed, cell_size, img)
         self.scared_img = scared_img
+        self.path_to_start: List[Tuple[int, int]] | None = None
+
+    def _calculate_f(
+        self, target_grid_x: int, target_grid_y: int, x: int, y: int, g: int
+    ):
+        h = abs(target_grid_x - x) + abs(target_grid_y - y)
+
+        return h + g
+
+    def _find_fastest_way_to(
+        self,
+        map: List[List[List[int]]],
+        target_grid_x: int,
+        target_grid_y: int,
+    ) -> List[Tuple[int, int]]:
+
+        f_init = self._calculate_f(
+            target_grid_x, target_grid_y, self.grid_x, self.grid_y, 0
+        )
+
+        queue: List[Any] = [(f_init, 0, (self.grid_y, self.grid_x), [])]
+
+        directions = {
+            Directions.UP: (-1, 0),
+            Directions.DOWN: (1, 0),
+            Directions.RIGHT: (0, 1),
+            Directions.LEFT: (0, -1),
+        }
+
+        visited = set()
+
+        while queue:
+            node = heapq.heappop(queue)
+
+            node_y, node_x = node[2]
+
+            if (node_y, node_x) == (target_grid_y, target_grid_x):
+                return node[3][::-1]
+
+            g = node[1]
+
+            visited.add((node_y, node_x))
+
+            for direction, coord in directions.items():
+
+                if not self._is_wall(map, node_x, node_y, direction):
+                    dy, dx = coord
+                    py, px = node_y + dy, node_x + dx
+
+                    if (py, px) in visited:
+                        continue
+
+                    f = self._calculate_f(
+                        target_grid_x, target_grid_y, px, py, g + 1
+                    )
+                    heapq.heappush(
+                        queue, (f, g + 1, (py, px), node[3] + [(py, px)])
+                    )
+
+        return []
+
+    def move_to_start_pos(self, map: List[List[List[int]]]) -> bool:
+        if self.path_to_start is None:
+            self.path_to_start = self._find_fastest_way_to(
+                map, self.starting_x, self.starting_y
+            )
+            self.target_y, self.target_x = (
+                self.path_to_start[-1][0] * self.cell_size,
+                self.path_to_start[-1][1] * self.cell_size,
+            )
+
+        if (
+            self.pixel_x == self.starting_x * self.cell_size
+            and self.pixel_y == self.starting_y * self.cell_size
+        ):
+            self.path_to_start = None
+            return True
+
+        directions = {
+            (-1, 0): Directions.UP,
+            (1, 0): Directions.DOWN,
+            (0, 1): Directions.RIGHT,
+            (0, -1): Directions.LEFT,
+        }
+
+        if self.pixel_x == self.target_x and self.pixel_y == self.target_y:
+            ny, nx = self.path_to_start.pop()
+            d = (ny - self.grid_y, nx - self.grid_x)
+
+            self.direction = directions[d]
+            self.grid_x = nx
+            self.grid_y = ny
+            self.target_x = self.grid_x * self.cell_size
+            self.target_y = self.grid_y * self.cell_size
+
+        else:
+            if self.pixel_x < self.target_x:
+                self.pixel_x = min(
+                    self.pixel_x + (self.speed * 2), self.target_x
+                )
+            elif self.pixel_x > self.target_x:
+                self.pixel_x = max(
+                    self.pixel_x - (self.speed * 2), self.target_x
+                )
+            elif self.pixel_y < self.target_y:
+                self.pixel_y = min(
+                    self.pixel_y + (self.speed * 2), self.target_y
+                )
+            elif self.pixel_y > self.target_y:
+                self.pixel_y = max(
+                    self.pixel_y - (self.speed * 2), self.target_y
+                )
+        return False
 
     def move_random(self, map: List[List[List[int]]]) -> None:
         if self.speed == 0:

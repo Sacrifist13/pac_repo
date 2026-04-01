@@ -22,3 +22,9 @@ class PlayingState(Enum):
     RETREATE = auto()
     POWER = auto()
     DEATH = auto()
+
+
+class Mode(Enum):
+    NORMAL = auto()
+    EAT = auto()
+    INVICIBLE = auto()
