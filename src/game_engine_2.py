@@ -673,6 +673,28 @@ class GameEngine:
 
         self.pac_man.speed = 0
 
+    def _depause_game(self) -> None:
+        current_time = pygame.time.get_ticks()
+
+        for name, ghost in self.ghosts.items():
+            ghost.speed = self.pause_info[name]
+
+        self.pac_man.speed = 2
+
+        self.level_starting_time = (
+            current_time - self.pause_info["time_left"] - 1
+        )
+
+        if self.pac_man.mode == Mode.INVICIBLE:
+            self.pac_man.dying_time = (
+                current_time - self.pause_info["pac_man_dying_elapsed_time"]
+            )
+
+        if self.playing_state == PlayingState.POWER:
+            self.power_time = (
+                current_time - self.pause_info["power_elapsed_time"]
+            )
+
     def _render_starting_level(self) -> None:
 
         blur_surface = pygame.Surface(
@@ -806,6 +828,28 @@ class GameEngine:
         paused_surface.blit(score_text_1, (score_text_x, score_text_y))
         paused_surface.blit(
             score_text_2, (score_text_x + score_text_w, score_text_y)
+        )
+
+        resume_text = self.font_basic.render("RESUME", True, self.PURPLE)
+        resume_w, resume_h = resume_text.get_size()
+
+        resume_x, resume_y = (
+            width - resume_w
+        ) // 2, score_text_y + score_text_h + resume_h + 40
+
+        if (
+            resume_x <= mouse_x <= resume_x + resume_w
+            and resume_y <= mouse_y <= resume_y + resume_h
+        ):
+            resume_text = self.font_basic.render(
+                "RESUME", True, self.NEON_PINK
+            )
+
+        paused_surface.blit(resume_text, (resume_x, resume_y))
+
+        self.home_page["resume_paused"] = (
+            (x + resume_x, x + resume_x + resume_w),
+            (y + resume_y, y + resume_y + resume_h),
         )
 
         self.virtual_screen.blit(paused_surface, (x, y))
@@ -1393,13 +1437,30 @@ class GameEngine:
             elif self.state == GameState.PAUSED:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
-                        x_min, x_max = self.home_page["exit_paused"][0]
-                        y_min, y_max = self.home_page["exit_paused"][1]
+                        x_min_exit, x_max_exit = self.home_page["exit_paused"][
+                            0
+                        ]
+                        y_min_exit, y_max_exit = self.home_page["exit_paused"][
+                            1
+                        ]
 
-                        if (x_min <= mouse_x <= x_max) and (
-                            y_min <= mouse_y <= y_max
+                        x_min_resume, x_max_resume = self.home_page[
+                            "resume_paused"
+                        ][0]
+                        y_min_resume, y_max_resume = self.home_page[
+                            "resume_paused"
+                        ][1]
+
+                        if (x_min_exit <= mouse_x <= x_max_exit) and (
+                            y_min_exit <= mouse_y <= y_max_exit
                         ):
                             self.state = GameState.MENU
+
+                        elif (x_min_resume <= mouse_x <= x_max_resume) and (
+                            y_min_resume <= mouse_y <= y_max_resume
+                        ):
+                            self.state = GameState.PLAYING
+                            self._depause_game()
 
             elif self.state == GameState.SCORE:
                 pass
