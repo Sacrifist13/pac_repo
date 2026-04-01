@@ -35,6 +35,7 @@ class GameEngine:
         self.score: int = 0
         self.lives: int = 0
         self.ghosts_eat: int = 0
+        self.pause_info: Dict[Any, Any] = {}
 
     def _get_scale(self) -> Any:
         win_w, win_h = self.real_screen.get_size()
@@ -85,6 +86,10 @@ class GameEngine:
         assets_dir = Path("assets")
 
         for img in assets_dir.rglob("*.png"):
+            img_name = img.name.split(".")[0]
+            self.img[img_name] = pygame.image.load(img).convert_alpha()
+
+        for img in assets_dir.rglob("*.jpeg"):
             img_name = img.name.split(".")[0]
             self.img[img_name] = pygame.image.load(img).convert_alpha()
 
@@ -643,6 +648,31 @@ class GameEngine:
 
         return False
 
+    def _load_pause_info(self) -> None:
+        current_time = pygame.time.get_ticks()
+
+        self.pause_info["time_left"] = (
+            self.config.level_max_time
+            - ((current_time - self.level_starting_time) // 1000)
+            - 1
+        )
+
+        if self.pac_man.mode == Mode.INVICIBLE:
+            self.pause_info["pac_man_dying_elapsed_time"] = (
+                current_time - self.pac_man.dying_time
+            )
+
+        if self.playing_state == PlayingState.POWER:
+            self.pause_info["power_elapsed_time"] = (
+                current_time - self.power_time
+            )
+
+        for name, ghost in self.ghosts.items():
+            self.pause_info[name] = ghost.speed
+            ghost.speed = 0
+
+        self.pac_man.speed = 0
+
     def _render_starting_level(self) -> None:
 
         blur_surface = pygame.Surface(
@@ -680,6 +710,105 @@ class GameEngine:
 
         self.virtual_screen.blit(text_1, (text_x, text_y))
         self.virtual_screen.blit(text_2, (text_x, text_y))
+
+    def _render_paused_game(self, mouse_x: int, mouse_y: int) -> None:
+        blur_surface = pygame.Surface(
+            (self.WIDTH, self.HEIGHT), pygame.SRCALPHA
+        )
+        blur_surface.fill((0, 0, 0, 160))
+
+        time_left = self.pause_info["time_left"]
+
+        time_left_text = self.font_basic.render(
+            str(time_left), True, self.NEON_PINK
+        )
+
+        time_left_w, time_left_h = time_left_text.get_size()
+        time_x, time_y = (
+            self.WIDTH - time_left_w
+        ) // 2, self.HEIGHT - time_left_h - 20
+
+        self.virtual_screen.blit(time_left_text, (time_x, time_y))
+
+        self.virtual_screen.blit(blur_surface, (0, 0))
+
+        width, height = self.WIDTH // 3, int(self.HEIGHT / 2.4)
+        x, y = (self.WIDTH - width) // 2, (self.HEIGHT - height) // 2
+
+        paused_surface = pygame.Surface((width, height))
+        paused_surface.fill(self.BLACK)
+
+        color = self.PURPLE
+
+        if x <= mouse_x <= x + width and y <= mouse_y <= y + height:
+            color = self.NEON_PINK
+
+        pygame.draw.rect(
+            self.virtual_screen,
+            color,
+            pygame.Rect(x - 1, y - 1, width + 2, height + 2),
+            2,
+        )
+
+        text_1 = self.font_back.render("PAUSE", True, self.GRAY)
+        text_2 = self.font_front.render("PAUSE", True, color)
+
+        text_x = (width - text_1.get_width()) // 2
+
+        paused_surface.blit(text_1, (text_x, 2))
+        paused_surface.blit(text_2, (text_x, 2))
+
+        exit_text_1 = self.font_back_game_over.render("EXIT", True, self.GRAY)
+
+        exit_text_w, exit_text_h = exit_text_1.get_size()
+
+        exit_text_x = (width - exit_text_w) // 2
+        exit_text_y = height - exit_text_h - 4
+
+        exit_text_front_color = self.PURPLE
+        if (
+            x + exit_text_x <= mouse_x <= x + exit_text_x + exit_text_w
+            and y + exit_text_y <= mouse_y <= y + exit_text_y + exit_text_h
+        ):
+            exit_text_front_color = self.NEON_PINK
+
+        exit_text_2 = self.font_front_game_over.render(
+            "EXIT", True, exit_text_front_color
+        )
+
+        self.home_page["exit_paused"] = (
+            (x + exit_text_x, x + exit_text_x + exit_text_w),
+            (y + exit_text_y, y + exit_text_y + exit_text_h),
+        )
+
+        paused_surface.blit(exit_text_1, (exit_text_x, exit_text_y))
+        paused_surface.blit(exit_text_2, (exit_text_x, exit_text_y))
+
+        volume_img = pygame.transform.scale(self.img["volume_up"], (40, 40))
+        volume_w, volume_h = volume_img.get_size()
+        volume_x, volume_y = (
+            width - volume_w
+        ) // 2, text_1.get_height() + volume_h - 20
+
+        paused_surface.blit(volume_img, (volume_x, volume_y))
+
+        score_text_1 = self.font_basic.render("Score ", True, self.GRAY)
+        score_text_2 = self.font_basic.render(str(self.score), True, color)
+
+        score_text_w, score_text_h = score_text_1.get_size()
+        value_text_w = score_text_2.get_width()
+
+        total_w = score_text_w + value_text_w
+        score_text_x, score_text_y = (
+            width - total_w
+        ) // 2, volume_y + volume_h + 40
+
+        paused_surface.blit(score_text_1, (score_text_x, score_text_y))
+        paused_surface.blit(
+            score_text_2, (score_text_x + score_text_w, score_text_y)
+        )
+
+        self.virtual_screen.blit(paused_surface, (x, y))
 
     def _render_pac_man_dying(self) -> bool:
         x, y = self.pac_man.pixel_x, self.pac_man.pixel_y
@@ -802,6 +931,9 @@ class GameEngine:
 
         if self.state == GameState.GAME_OVER:
             self._render_game_over(mouse_x, mouse_y)
+
+        elif self.state == GameState.PAUSED:
+            self._render_paused_game(mouse_x, mouse_y)
 
         elif self.state == GameState.PLAYING:
 
@@ -977,7 +1109,7 @@ class GameEngine:
 
         x, y = (self.WIDTH - width) // 2, (
             self.HEIGHT - height_available
-        ) // 3 + height - 20
+        ) // 3 + height - 10
 
         color = self.PURPLE
 
@@ -1254,9 +1386,20 @@ class GameEngine:
                         self.pac_man.set_direction(Directions.LEFT)
                     elif event.key == pygame.K_DOWN:
                         self.pac_man.set_direction(Directions.DOWN)
+                    elif event.key == pygame.K_SPACE:
+                        self._load_pause_info()
+                        self.state = GameState.PAUSED
 
             elif self.state == GameState.PAUSED:
-                pass
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        x_min, x_max = self.home_page["exit_paused"][0]
+                        y_min, y_max = self.home_page["exit_paused"][1]
+
+                        if (x_min <= mouse_x <= x_max) and (
+                            y_min <= mouse_y <= y_max
+                        ):
+                            self.state = GameState.MENU
 
             elif self.state == GameState.SCORE:
                 pass
