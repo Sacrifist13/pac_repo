@@ -45,6 +45,8 @@ class GameEngine:
         self.home_page_sound_play: bool = False
         self.in_typing: bool = False
         self.pseudo = ""
+        self.pseudo_valid: bool = False
+        self.input_cursor_i: int = 0
 
     def _get_scale(self) -> Any:
         win_w, win_h = self.real_screen.get_size()
@@ -189,6 +191,7 @@ class GameEngine:
         )
 
         self.font_basic = pygame.font.Font("assets/font/basic.ttf", 14)
+        self.font_basic_small = pygame.font.Font("assets/font/basic.ttf", 11)
 
     def _load_game_img(self, cell_size: int) -> None:
         self.game_img["pac_man"] = {
@@ -1010,13 +1013,31 @@ class GameEngine:
         if not self.in_typing and not self.pseudo:
             input_window.blit(basic_text, (4, 8))
         else:
+            self.input_cursor_i += 1
             input_txt = (
-                self.pseudo + "|" if len(self.pseudo) < 12 else self.pseudo
+                self.pseudo + "|"
+                if len(self.pseudo) < 12 and (self.input_cursor_i // 20) % 2
+                else self.pseudo
             )
 
             text = self.font_basic.render(input_txt, True, self.BLACK)
             input_window.blit(text, (4, 8))
             color = self.NEON_PINK
+
+            if len(self.pseudo) >= 1:
+                self.pseudo_valid = True
+                inst_text = self.font_basic_small.render(
+                    "Press enter to valid", True, self.NEON_PINK
+                )
+                inst_text_w = inst_text.get_width()
+
+                inst_text_x, inst_text_y = (
+                    input_window_x + (input_window_w - inst_text_w) // 2,
+                    input_window_y + input_window_h + 10,
+                )
+                surface.blit(inst_text, (inst_text_x, inst_text_y))
+            else:
+                self.pseudo_valid = False
 
         surface.blit(input_window, (input_window_x, input_window_y))
 
@@ -1305,7 +1326,108 @@ class GameEngine:
             self._is_pac_man_catch()
 
     def _render_win(self, mouse_x: int, mouse_y: int) -> None:
-        pass
+        ratio = (
+            self.img["firework"].get_width()
+            / self.img["firework"].get_height()
+        )
+
+        new_w = 300
+        new_h = int(new_w / ratio)
+
+        new_firework_img = pygame.transform.scale(
+            self.img["firework"], (new_w, new_h)
+        )
+
+        self.virtual_screen.blit(new_firework_img, (60, 20))
+        self.virtual_screen.blit(
+            new_firework_img, (self.WIDTH - new_w - 60, 20)
+        )
+
+        pop_up_surface = pygame.Surface(
+            (int(self.WIDTH / 1.5), self.HEIGHT // 3), pygame.SRCALPHA
+        )
+
+        w, h = pop_up_surface.get_size()
+
+        x, y = (self.WIDTH - w) // 2, (self.HEIGHT - h) // 2
+
+        pop_up_surface.fill(self.BLACK)
+
+        color = self.NEON_PURPLE
+
+        if x <= mouse_x <= x + w and y <= mouse_y <= y + h:
+            color = self.NEON_PINK
+
+        pygame.draw.rect(
+            self.virtual_screen,
+            color,
+            pygame.Rect(x - 1, y - 1, w + 2, h + 2),
+            2,
+        )
+        text_1 = self.font_back.render("YOU WIN", True, self.GRAY)
+        text_2 = self.font_front.render("YOU WIN", True, color)
+
+        text_x = (w - text_1.get_width()) // 2
+        text_h = text_1.get_height()
+
+        pop_up_surface.blit(text_1, (text_x, 2))
+        pop_up_surface.blit(text_2, (text_x, 2))
+
+        back_text_1 = self.font_back_game_over.render("BACK", True, self.GRAY)
+
+        back_text_w, back_text_h = back_text_1.get_size()
+
+        back_text_x = (w - back_text_w) // 2
+        back_text_y = h - back_text_h - 4
+
+        back_text_front_color = self.NEON_PURPLE
+
+        self.interface["Back_game_over"][0] = (
+            x + back_text_x,
+            x + back_text_x + back_text_w,
+        )
+        self.interface["Back_game_over"][1] = (
+            y + back_text_y,
+            y + back_text_y + back_text_h,
+        )
+
+        if (
+            x + back_text_x <= mouse_x <= x + back_text_x + back_text_w
+            and y + back_text_y <= mouse_y <= y + back_text_y + back_text_h
+        ):
+            back_text_front_color = self.NEON_PINK
+            if not self.interface["Back_game_over"][2]:
+                self._play_sound(None, self.sound["munch_2"], False, 0.5)
+                self.interface["Back_game_over"][2] = True
+        else:
+            self.interface["Back_game_over"][2] = False
+
+        back_text_2 = self.font_front_game_over.render(
+            "BACK", True, back_text_front_color
+        )
+
+        pop_up_surface.blit(back_text_1, (back_text_x, back_text_y))
+        pop_up_surface.blit(back_text_2, (back_text_x, back_text_y))
+
+        score_text_1 = self.font_basic.render("Score ", True, self.GRAY)
+        score_text_2 = self.font_basic.render(str(self.score), True, color)
+
+        score_text_w, score_text_h = score_text_1.get_size()
+        value_text_w = score_text_2.get_width()
+
+        total_w = score_text_w + value_text_w
+        score_text_x, score_text_y = (w - total_w) // 2, 2 + text_h + 40
+
+        pop_up_surface.blit(score_text_1, (score_text_x, score_text_y))
+        pop_up_surface.blit(
+            score_text_2, (score_text_x + score_text_w, score_text_y)
+        )
+
+        input_window_y = score_text_y + score_text_h + 40
+
+        self._render_input_user(pop_up_surface, x, y, input_window_y)
+
+        self.virtual_screen.blit(pop_up_surface, (x, y))
 
     def _draw_command(
         self, mouse_x: int, mouse_y: int, height_available: int
@@ -1318,13 +1440,26 @@ class GameEngine:
 
         color = self.NEON_PURPLE
 
+        blinky_x, blinky_y = x + 40, y - 20
+        clyde_x, clyde_y = x + width - 40, y - 20
+
         if x <= mouse_x <= x + width and y <= mouse_y <= y + height:
             color = self.NEON_PINK
+            blinky_y, clyde_y = y - 25, y - 25
+
+        self.virtual_screen.blit(self.img["blinky_down"], (blinky_x, blinky_y))
+        self.virtual_screen.blit(self.img["clyde_down"], (clyde_x, clyde_y))
+
+        pygame.draw.rect(
+            self.virtual_screen,
+            self.BLACK,
+            pygame.Rect(x, y, width, height),
+        )
 
         pygame.draw.rect(
             self.virtual_screen,
             color,
-            pygame.Rect(x, y, width, height),
+            pygame.Rect(x - 1, y - 1, width + 2, height + 2),
             1,
         )
 
@@ -1409,13 +1544,26 @@ class GameEngine:
 
         color = self.NEON_PURPLE
 
+        inky_x, inky_y = x + 40, y - 20
+        pinky_x, pinky_y = x + width - 40, y - 20
+
         if x <= mouse_x <= x + width and y <= mouse_y <= y + height:
             color = self.NEON_PINK
+            inky_y, pinky_y = y - 25, y - 25
+
+        self.virtual_screen.blit(self.img["inky_down"], (inky_x, inky_y))
+        self.virtual_screen.blit(self.img["pinky_down"], (pinky_x, pinky_y))
+
+        pygame.draw.rect(
+            self.virtual_screen,
+            self.BLACK,
+            pygame.Rect(x, y, width, height),
+        )
 
         pygame.draw.rect(
             self.virtual_screen,
             color,
-            pygame.Rect(x, y, width, height),
+            pygame.Rect(x - 1, y - 1, width + 2, height + 2),
             1,
         )
 
@@ -1762,7 +1910,7 @@ class GameEngine:
                                 if key == "Start Game":
                                     self.state = GameState.STARTING_LEVEL
                                     self.playing_state = PlayingState.RETREATE
-                                    self.current_level = 1
+                                    self.current_level = 10
                                     self.score = 0
                                     # self.lives = self.config.lives
                                     self.pseudo = ""
@@ -1865,7 +2013,10 @@ class GameEngine:
                         ):
                             self.state = GameState.MENU
 
-            elif self.state == GameState.GAME_OVER:
+            elif (
+                self.state == GameState.GAME_OVER
+                or self.state == GameState.WIN
+            ):
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
                         x_min, x_max = self.interface["Back_game_over"][0]
