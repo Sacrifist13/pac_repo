@@ -14,6 +14,7 @@ class GameEngine:
     WIDTH = 800
     HEIGHT = 800
     BLACK = (0, 0, 0)
+    WHITE = (255, 255, 255)
     GRAY = (155, 155, 155)
     PACMAN_YELLOW = (255, 255, 0)
     NEON_BLUE = (33, 33, 255)
@@ -41,6 +42,9 @@ class GameEngine:
         self.music_on = True
         self.level_pass_animation = False
         self.level_pass_animation_time: int = 0
+        self.home_page_sound_play: bool = False
+        self.in_typing: bool = False
+        self.pseudo = ""
 
     def _get_scale(self) -> Any:
         win_w, win_h = self.real_screen.get_size()
@@ -108,8 +112,6 @@ class GameEngine:
 
         loader = Loader()
         self.config = loader.load_config(sys.argv)
-
-        self.lives = self.config.lives
 
         assets_dir = Path("assets")
 
@@ -591,7 +593,7 @@ class GameEngine:
 
         if self.playing_state == PlayingState.POWER:
             for ghost in self.ghosts.values():
-                if ghost.mode == Mode.NORMAL:
+                if ghost.mode == Mode.SCARED:
                     ghost.move_random(self.map)
                 elif ghost.mode == Mode.EAT:
                     if ghost.move_to_start_pos(self.map):
@@ -599,10 +601,11 @@ class GameEngine:
                         ghost.speed = 1
 
         else:
-            # ghost.move() quand les algos des fantomes seront termines
             for ghost in self.ghosts.values():
                 if ghost.mode == Mode.NORMAL:
                     ghost.move_random(self.map)
+                    # Rajouter un if pac_man.mode == Mode.INVINCIBLE
+                    # else avec le vrai algo des fantomes ghost.move()
                 elif ghost.mode == Mode.EAT:
                     if ghost.move_to_start_pos(self.map):
                         ghost.mode = Mode.NORMAL
@@ -656,12 +659,9 @@ class GameEngine:
             )
             self.virtual_screen.blit(points_str, (points_x, points_y))
 
-    def _is_pac_man_catch(self) -> bool:
-        if (
-            self.pac_man.mode == Mode.INVICIBLE
-            or self.playing_state == PlayingState.LEVEL_PASS
-        ):
-            return False
+    def _is_pac_man_catch(self) -> None:
+        if self.playing_state == PlayingState.LEVEL_PASS:
+            return
 
         cell_size = self.pac_man.cell_size
 
@@ -669,31 +669,37 @@ class GameEngine:
             self.pac_man.pixel_x, self.pac_man.pixel_y, cell_size
         )
 
-        for ghost in self.ghosts.values():
-            if ghost.mode == Mode.NORMAL:
-                ghost_rect = self._get_hitbox(
-                    ghost.pixel_x, ghost.pixel_y, cell_size
-                )
-                if pac_rect.colliderect(ghost_rect):
-                    if self.playing_state == PlayingState.POWER:
-                        self._play_sound(
-                            None, self.sound["eat_ghost"], False, 0.5
-                        )
-                        ghost.mode = Mode.EAT
-                        ghost.speed = 2
-                        self.score_eating = self.config.points_per_ghost * (
-                            1 + self.ghosts_eat
-                        )
-                        self.score += self.score_eating
-                        self.ghosts_eat += 1
-                        self.time_score_eating = pygame.time.get_ticks()
-                        self.score_eating_coord = (
-                            ghost.pixel_y,
-                            ghost.pixel_x,
-                        )
-                    return True
+        current_time = pygame.time.get_ticks()
 
-        return False
+        for ghost in self.ghosts.values():
+            ghost_rect = self._get_hitbox(
+                ghost.pixel_x, ghost.pixel_y, cell_size
+            )
+            if pac_rect.colliderect(ghost_rect):
+                if (
+                    ghost.mode == Mode.NORMAL
+                    and self.pac_man.mode != Mode.INVICIBLE
+                ):
+                    self.playing_state = PlayingState.DEATH
+                    self.pac_man.speed = 0
+                    self.music_load = False
+                    self.death_time = current_time
+                    self.lives -= 1
+
+                elif ghost.mode == Mode.SCARED:
+                    self._play_sound(None, self.sound["eat_ghost"], False, 0.5)
+                    ghost.mode = Mode.EAT
+                    ghost.speed = 2
+                    self.score_eating = self.config.points_per_ghost * (
+                        1 + self.ghosts_eat
+                    )
+                    self.score += self.score_eating
+                    self.ghosts_eat += 1
+                    self.time_score_eating = pygame.time.get_ticks()
+                    self.score_eating_coord = (
+                        ghost.pixel_y,
+                        ghost.pixel_x,
+                    )
 
     def _load_pause_info(self) -> None:
         current_time = pygame.time.get_ticks()
@@ -978,6 +984,65 @@ class GameEngine:
 
         return False
 
+    def _render_input_user(
+        self,
+        surface: pygame.Surface,
+        surface_pos_x: int,
+        surface_pos_y: int,
+        input_window_y: int,
+    ) -> None:
+        w, h = surface.get_size()
+
+        basic_text = self.font_basic.render(
+            "Enter your name ..", True, self.BLACK
+        )
+
+        basic_text_w, basic_text_h = basic_text.get_size()
+
+        input_window_w, input_window_h = basic_text_w + 14, basic_text_h + 14
+        input_window_x = (w - input_window_w) // 2
+
+        input_window = pygame.Surface((input_window_w, input_window_h))
+        input_window.fill(self.WHITE)
+
+        color = self.NEON_PURPLE
+
+        if not self.in_typing and not self.pseudo:
+            input_window.blit(basic_text, (4, 8))
+        else:
+            input_txt = (
+                self.pseudo + "|" if len(self.pseudo) < 12 else self.pseudo
+            )
+
+            text = self.font_basic.render(input_txt, True, self.BLACK)
+            input_window.blit(text, (4, 8))
+            color = self.NEON_PINK
+
+        surface.blit(input_window, (input_window_x, input_window_y))
+
+        pygame.draw.rect(
+            surface,
+            color,
+            pygame.Rect(
+                input_window_x - 1,
+                input_window_y - 1,
+                input_window_w + 2,
+                input_window_h + 2,
+            ),
+            2,
+        )
+
+        self.interface["input_window"] = (
+            (
+                surface_pos_x + input_window_x,
+                surface_pos_x + input_window_x + input_window_w,
+            ),
+            (
+                surface_pos_y + input_window_y,
+                surface_pos_y + input_window_y + input_window_h,
+            ),
+        )
+
     def _render_game_over(self, mouse_x: int, mouse_y: int) -> None:
         blur_surface = pygame.Surface(
             (self.WIDTH, self.HEIGHT), pygame.SRCALPHA
@@ -1011,6 +1076,7 @@ class GameEngine:
         text_2 = self.font_front.render("GAME OVER", True, color)
 
         text_x = (w - text_1.get_width()) // 2
+        text_h = text_1.get_height()
 
         pop_up_surface.blit(text_1, (text_x, 2))
         pop_up_surface.blit(text_2, (text_x, 2))
@@ -1050,6 +1116,24 @@ class GameEngine:
 
         pop_up_surface.blit(back_text_1, (back_text_x, back_text_y))
         pop_up_surface.blit(back_text_2, (back_text_x, back_text_y))
+
+        score_text_1 = self.font_basic.render("Score ", True, self.GRAY)
+        score_text_2 = self.font_basic.render(str(self.score), True, color)
+
+        score_text_w, score_text_h = score_text_1.get_size()
+        value_text_w = score_text_2.get_width()
+
+        total_w = score_text_w + value_text_w
+        score_text_x, score_text_y = (w - total_w) // 2, 2 + text_h + 40
+
+        pop_up_surface.blit(score_text_1, (score_text_x, score_text_y))
+        pop_up_surface.blit(
+            score_text_2, (score_text_x + score_text_w, score_text_y)
+        )
+
+        input_window_y = score_text_y + score_text_h + 40
+
+        self._render_input_user(pop_up_surface, x, y, input_window_y)
 
         self.virtual_screen.blit(pop_up_surface, (x, y))
 
@@ -1184,7 +1268,8 @@ class GameEngine:
                     self.ghosts_eat = 0
 
                     for ghost in self.ghosts.values():
-                        if ghost.mode == Mode.NORMAL:
+                        if ghost.mode != Mode.EAT:
+                            ghost.mode = Mode.NORMAL
                             ghost.speed = 2
             else:
                 pygame.mixer.music.stop()
@@ -1209,21 +1294,15 @@ class GameEngine:
                 self.power_time = current_time
 
                 for ghost in self.ghosts.values():
-                    ghost.speed = 1
+                    if ghost.mode != Mode.EAT:
+                        ghost.mode = Mode.SCARED
+                        ghost.speed = 1
 
             if not self.pac_gums_coord:
                 self.playing_state = PlayingState.LEVEL_PASS
                 return
 
-            if self._is_pac_man_catch():
-                if self.playing_state == PlayingState.POWER:
-                    pass
-                else:
-                    self.playing_state = PlayingState.DEATH
-                    self.pac_man.speed = 0
-                    self.music_load = False
-                    self.death_time = current_time
-                    self.lives -= 1
+            self._is_pac_man_catch()
 
     def _render_win(self, mouse_x: int, mouse_y: int) -> None:
         pass
@@ -1666,6 +1745,11 @@ class GameEngine:
                 return False
 
             if self.state == GameState.MENU:
+                if not self.home_page_sound_play:
+                    self._play_sound(
+                        "assets/media/game_start.wav", None, False, 0.5
+                    )
+                    self.home_page_sound_play = True
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
                         for key, value in self.interface["text"].items():
@@ -1680,9 +1764,12 @@ class GameEngine:
                                     self.playing_state = PlayingState.RETREATE
                                     self.current_level = 1
                                     self.score = 0
-                                    self.lives = self.config.lives
+                                    # self.lives = self.config.lives
+                                    self.pseudo = ""
+                                    self.lives = 1
                                     self.countdown_play = False
                                     self._generate_map()
+                                    self.home_page_sound_play = False
 
                                 elif key == "View Highscores":
                                     self.state = GameState.SCORE
@@ -1784,10 +1871,32 @@ class GameEngine:
                         x_min, x_max = self.interface["Back_game_over"][0]
                         y_min, y_max = self.interface["Back_game_over"][1]
 
+                        x_min_input, x_max_input = self.interface[
+                            "input_window"
+                        ][0]
+                        y_min_input, y_max_input = self.interface[
+                            "input_window"
+                        ][1]
+
                         if (x_min <= mouse_x <= x_max) and (
                             y_min <= mouse_y <= y_max
                         ):
                             self.state = GameState.MENU
+                            self.in_typing = False
+
+                        elif (x_min_input <= mouse_x <= x_max_input) and (
+                            y_min_input <= mouse_y <= y_max_input
+                        ):
+                            self.in_typing = True
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_RETURN:
+                        pass
+                    elif event.key == pygame.K_BACKSPACE:
+                        if self.pseudo:
+                            self.pseudo = self.pseudo[:-1]
+                    else:
+                        if len(self.pseudo) < 12:
+                            self.pseudo += event.unicode
 
             elif self.state == GameState.INFO:
                 if event.type == pygame.MOUSEBUTTONDOWN:
@@ -1838,6 +1947,7 @@ class GameEngine:
         running = True
 
         self._play_sound("assets/media/game_start.wav", None, False, 0.5)
+        self.home_page_sound_play = True
 
         while running:
             clock.tick(60)

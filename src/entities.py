@@ -305,7 +305,7 @@ class Ghost(Entity, ABC):
             else:
                 current_img = self.eaten_img["eaten_up"]
         else:
-            if playing_state == PlayingState.POWER:
+            if self.mode == Mode.SCARED:
                 if (
                     self.direction == Directions.UP
                     or self.direction == Directions.DOWN
@@ -448,6 +448,7 @@ class PacMan(Entity):
     ) -> None:
         super().__init__(name, grid_x, grid_y, speed, cell_size, img)
         self.dying_time: int = 0
+        self.j = 0
 
         self.rotation = {
             Directions.UP: 90,
@@ -534,11 +535,9 @@ class PacMan(Entity):
         ]
 
         if self.mode == Mode.INVICIBLE:
-            current_time = pygame.time.get_ticks()
+            self.j += 1
 
-            j = (current_time // 8) % 2
-
-            if j % 2:
+            if (self.j // 8) % 2:
                 return
 
         if self.moving:

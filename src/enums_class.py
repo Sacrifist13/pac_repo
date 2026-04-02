@@ -30,3 +30,4 @@ class Mode(Enum):
     NORMAL = auto()
     EAT = auto()
     INVICIBLE = auto()
+    SCARED = auto()
