@@ -151,6 +151,10 @@ class Ghost(Entity, ABC):
             self.path_to_start = self._find_fastest_way_to(
                 map, self.starting_x, self.starting_y
             )
+
+            if not self.path_to_start:
+                return True
+
             self.target_y, self.target_x = (
                 self.path_to_start[-1][0] * self.cell_size,
                 self.path_to_start[-1][1] * self.cell_size,
@@ -532,7 +536,7 @@ class PacMan(Entity):
         if self.mode == Mode.INVICIBLE:
             current_time = pygame.time.get_ticks()
 
-            j = (current_time // 10) % 2
+            j = (current_time // 8) % 2
 
             if j % 2:
                 return

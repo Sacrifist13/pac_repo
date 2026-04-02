@@ -16,6 +16,7 @@ class GameState(Enum):
     SCORE = auto()
     INFO = auto()
     STARTING_LEVEL = auto()
+    WIN = auto()
 
 
 class PlayingState(Enum):

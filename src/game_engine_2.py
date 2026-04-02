@@ -18,7 +18,9 @@ class GameEngine:
     PACMAN_YELLOW = (255, 255, 0)
     NEON_BLUE = (33, 33, 255)
     NEON_PINK = (255, 20, 147)
-    PURPLE = (133, 76, 135)
+    NEON_PURPLE = (191, 0, 255)
+    NEON_RED = (255, 7, 58)
+    NEON_GREEN = (57, 255, 20)
 
     def __init__(self) -> None:
         self.map_generator = MapGenerator()
@@ -36,6 +38,9 @@ class GameEngine:
         self.lives: int = 0
         self.ghosts_eat: int = 0
         self.pause_info: Dict[Any, Any] = {}
+        self.music_on = True
+        self.level_pass_animation = False
+        self.level_pass_animation_time: int = 0
 
     def _get_scale(self) -> Any:
         win_w, win_h = self.real_screen.get_size()
@@ -73,6 +78,29 @@ class GameEngine:
             pixel_x + offset, pixel_y + offset, hitbox_size, hitbox_size
         )
 
+    def _play_sound(
+        self, media: str | None, sound: Any, loop: bool, volume: float
+    ) -> None:
+        if not self.music_on:
+            self.music_load = False
+            return
+
+        if volume < 0.1 or volume > 1:
+            volume = 0.5
+
+        if media:
+            if loop:
+                pygame.mixer.music.load(media)
+                pygame.mixer.music.set_volume(volume)
+                pygame.mixer.music.play(-1)
+            else:
+                pygame.mixer.music.load(media)
+                pygame.mixer.music.set_volume(volume)
+                pygame.mixer.music.play(1)
+        else:
+            sound.set_volume(volume)
+            sound.play()
+
     def _init_game(self) -> None:
         self.state = GameState.MENU
         self.img: Dict[str, pygame.Surface] = {}
@@ -97,7 +125,7 @@ class GameEngine:
             sound_name = sound.name.split(".")[0]
             self.sound[sound_name] = pygame.mixer.Sound(sound)
 
-        self.home_page: Dict[Any, Any] = {
+        self.interface: Dict[Any, Any] = {
             "counter": 0,
             "anim_counter": 0,
             "pos_x": 0,
@@ -129,13 +157,16 @@ class GameEngine:
                 "Instructions": [(0, 0), (0, 0), False],
                 "Exit": [(0, 0), (0, 0), False],
             },
-            "Back": [(0, 0), (0, 0), False],
+            "Back_instructions": [(0, 0), (0, 0), False],
+            "Back_highscores": [(0, 0), (0, 0), False],
+            "Back_game_over": [(0, 0), (0, 0), False],
+            "Exit_paused": [(0, 0), (0, 0), False],
         }
 
-        self.home_page["pos_x"] = -(
-            self.home_page[1]["ghosts"][0].get_width() * 5
+        self.interface["pos_x"] = -(
+            self.interface[1]["ghosts"][0].get_width() * 5
         ) - (60)
-        self.home_page["start_x"] = -self.home_page["pos_x"]
+        self.interface["start_x"] = -self.interface["pos_x"]
 
         font_size = 40
         self.font_back = pygame.font.Font("assets/font/back.otf", font_size)
@@ -266,6 +297,14 @@ class GameEngine:
             for key, img in self.img.items()
             if key.startswith("eaten_")
         }
+
+        self.game_img["key"] = pygame.transform.scale(
+            self.img["key"],
+            (
+                int(cell_size / 1.5),
+                int(cell_size / 1.5),
+            ),
+        )
 
     def _load_map_elements(
         self, logo: List[Tuple[int, int]], margin: int = 80
@@ -534,18 +573,21 @@ class GameEngine:
                 self.game_offset_y,
                 self.playing_state,
             )
-
-        for ghost in self.ghosts.values():
-            ghost.draw_on_surface(
-                self.virtual_screen,
-                self.game_offset_x,
-                self.game_offset_y,
-                self.playing_state,
-            )
+        if self.playing_state != PlayingState.LEVEL_PASS:
+            for ghost in self.ghosts.values():
+                ghost.draw_on_surface(
+                    self.virtual_screen,
+                    self.game_offset_x,
+                    self.game_offset_y,
+                    self.playing_state,
+                )
 
     def _move_entities(self) -> None:
 
         self.pac_man.move(self.map)
+
+        if self.playing_state == PlayingState.LEVEL_PASS:
+            return
 
         if self.playing_state == PlayingState.POWER:
             for ghost in self.ghosts.values():
@@ -615,7 +657,10 @@ class GameEngine:
             self.virtual_screen.blit(points_str, (points_x, points_y))
 
     def _is_pac_man_catch(self) -> bool:
-        if self.pac_man.mode == Mode.INVICIBLE:
+        if (
+            self.pac_man.mode == Mode.INVICIBLE
+            or self.playing_state == PlayingState.LEVEL_PASS
+        ):
             return False
 
         cell_size = self.pac_man.cell_size
@@ -631,7 +676,9 @@ class GameEngine:
                 )
                 if pac_rect.colliderect(ghost_rect):
                     if self.playing_state == PlayingState.POWER:
-                        self.sound["eat_ghost"].play()
+                        self._play_sound(
+                            None, self.sound["eat_ghost"], False, 0.5
+                        )
                         ghost.mode = Mode.EAT
                         ghost.speed = 2
                         self.score_eating = self.config.points_per_ghost * (
@@ -682,8 +729,10 @@ class GameEngine:
         self.pac_man.speed = 2
 
         self.level_starting_time = (
-            current_time - self.pause_info["time_left"] - 1
-        )
+            current_time
+            - (self.config.level_max_time - self.pause_info["time_left"])
+            * 1000
+        ) + 1000
 
         if self.pac_man.mode == Mode.INVICIBLE:
             self.pac_man.dying_time = (
@@ -694,6 +743,11 @@ class GameEngine:
             self.power_time = (
                 current_time - self.pause_info["power_elapsed_time"]
             )
+            if not self.music_load:
+                self._play_sound(
+                    "assets/media/power_pellet.wav", None, True, 0.5
+                )
+                self.music_load = True
 
     def _render_starting_level(self) -> None:
 
@@ -760,7 +814,7 @@ class GameEngine:
         paused_surface = pygame.Surface((width, height))
         paused_surface.fill(self.BLACK)
 
-        color = self.PURPLE
+        color = self.NEON_PURPLE
 
         if x <= mouse_x <= x + width and y <= mouse_y <= y + height:
             color = self.NEON_PINK
@@ -787,32 +841,66 @@ class GameEngine:
         exit_text_x = (width - exit_text_w) // 2
         exit_text_y = height - exit_text_h - 4
 
-        exit_text_front_color = self.PURPLE
+        exit_text_front_color = self.NEON_PURPLE
         if (
             x + exit_text_x <= mouse_x <= x + exit_text_x + exit_text_w
             and y + exit_text_y <= mouse_y <= y + exit_text_y + exit_text_h
         ):
             exit_text_front_color = self.NEON_PINK
+            if not self.interface["Exit_paused"][2]:
+                self._play_sound(None, self.sound["munch_2"], False, 0.5)
+                self.interface["Exit_paused"][2] = True
+        else:
+            self.interface["Exit_paused"][2] = False
 
         exit_text_2 = self.font_front_game_over.render(
             "EXIT", True, exit_text_front_color
         )
 
-        self.home_page["exit_paused"] = (
-            (x + exit_text_x, x + exit_text_x + exit_text_w),
-            (y + exit_text_y, y + exit_text_y + exit_text_h),
+        self.interface["Exit_paused"][0] = (
+            x + exit_text_x,
+            x + exit_text_x + exit_text_w,
+        )
+        self.interface["Exit_paused"][1] = (
+            y + exit_text_y,
+            y + exit_text_y + exit_text_h,
         )
 
         paused_surface.blit(exit_text_1, (exit_text_x, exit_text_y))
         paused_surface.blit(exit_text_2, (exit_text_x, exit_text_y))
 
-        volume_img = pygame.transform.scale(self.img["volume_up"], (40, 40))
+        volume_img = (
+            pygame.transform.scale(self.img["volume_up"], (40, 40))
+            if self.music_on
+            else pygame.transform.scale(self.img["volume_off"], (40, 40))
+        )
+
         volume_w, volume_h = volume_img.get_size()
         volume_x, volume_y = (
             width - volume_w
         ) // 2, text_1.get_height() + volume_h - 20
 
         paused_surface.blit(volume_img, (volume_x, volume_y))
+
+        self.interface["volume"] = (
+            (x + volume_x, x + volume_x + volume_w),
+            (y + volume_y, y + volume_y + volume_h),
+        )
+
+        hover_music_color = self.NEON_GREEN if self.music_on else self.NEON_RED
+
+        if (
+            x + volume_x <= mouse_x <= x + volume_x + volume_w
+            and y + volume_y <= mouse_y <= y + volume_y + volume_h
+        ):
+            pygame.draw.rect(
+                paused_surface,
+                hover_music_color,
+                pygame.Rect(
+                    volume_x - 1, volume_y - 1, volume_w + 2, volume_h + 2
+                ),
+                1,
+            )
 
         score_text_1 = self.font_basic.render("Score ", True, self.GRAY)
         score_text_2 = self.font_basic.render(str(self.score), True, color)
@@ -830,7 +918,7 @@ class GameEngine:
             score_text_2, (score_text_x + score_text_w, score_text_y)
         )
 
-        resume_text = self.font_basic.render("RESUME", True, self.PURPLE)
+        resume_text = self.font_basic.render("RESUME", True, self.NEON_PURPLE)
         resume_w, resume_h = resume_text.get_size()
 
         resume_x, resume_y = (
@@ -838,8 +926,8 @@ class GameEngine:
         ) // 2, score_text_y + score_text_h + resume_h + 40
 
         if (
-            resume_x <= mouse_x <= resume_x + resume_w
-            and resume_y <= mouse_y <= resume_y + resume_h
+            x + resume_x <= mouse_x <= x + resume_x + resume_w
+            and y + resume_y <= mouse_y <= y + resume_y + resume_h
         ):
             resume_text = self.font_basic.render(
                 "RESUME", True, self.NEON_PINK
@@ -847,7 +935,7 @@ class GameEngine:
 
         paused_surface.blit(resume_text, (resume_x, resume_y))
 
-        self.home_page["resume_paused"] = (
+        self.interface["resume_paused"] = (
             (x + resume_x, x + resume_x + resume_w),
             (y + resume_y, y + resume_y + resume_h),
         )
@@ -908,7 +996,7 @@ class GameEngine:
 
         pop_up_surface.fill(self.BLACK)
 
-        color = self.PURPLE
+        color = self.NEON_PURPLE
 
         if x <= mouse_x <= x + w and y <= mouse_y <= y + h:
             color = self.NEON_PINK
@@ -934,26 +1022,92 @@ class GameEngine:
         back_text_x = (w - back_text_w) // 2
         back_text_y = h - back_text_h - 4
 
-        back_text_front_color = self.PURPLE
+        back_text_front_color = self.NEON_PURPLE
+
+        self.interface["Back_game_over"][0] = (
+            x + back_text_x,
+            x + back_text_x + back_text_w,
+        )
+        self.interface["Back_game_over"][1] = (
+            y + back_text_y,
+            y + back_text_y + back_text_h,
+        )
+
         if (
             x + back_text_x <= mouse_x <= x + back_text_x + back_text_w
             and y + back_text_y <= mouse_y <= y + back_text_y + back_text_h
         ):
             back_text_front_color = self.NEON_PINK
+            if not self.interface["Back_game_over"][2]:
+                self._play_sound(None, self.sound["munch_2"], False, 0.5)
+                self.interface["Back_game_over"][2] = True
+        else:
+            self.interface["Back_game_over"][2] = False
 
         back_text_2 = self.font_front_game_over.render(
             "BACK", True, back_text_front_color
-        )
-
-        self.home_page["back_game_over"] = (
-            (x + back_text_x, x + back_text_x + back_text_w),
-            (y + back_text_y, y + back_text_y + back_text_h),
         )
 
         pop_up_surface.blit(back_text_1, (back_text_x, back_text_y))
         pop_up_surface.blit(back_text_2, (back_text_x, back_text_y))
 
         self.virtual_screen.blit(pop_up_surface, (x, y))
+
+    def _render_level_pass(self) -> None:
+        pygame.mixer.music.stop()
+
+        if self.level_pass_animation:
+            current_time = pygame.time.get_ticks()
+            elapsed_time = current_time - self.level_pass_animation_time
+
+            if elapsed_time > 1000:
+                self.current_level += 1
+                self.countdown_start_time = current_time
+
+                if self.current_level > 10:
+                    self.state = GameState.WIN
+                else:
+                    self.state = GameState.STARTING_LEVEL
+                    self.playing_state = PlayingState.RETREATE
+                    self.countdown_play = False
+                    self._generate_map()
+                return
+            else:
+                w, h = self.WIDTH * (
+                    (elapsed_time // 10) / 100
+                ), self.HEIGHT * ((elapsed_time // 10) / 100)
+
+                x, y = (self.WIDTH - w) // 2, (self.HEIGHT - h) // 2
+
+                pygame.draw.rect(
+                    self.virtual_screen, self.BLACK, pygame.Rect(x, y, w, h)
+                )
+
+        else:
+            cell_size = self.pac_man.cell_size
+
+            key_pixel_x, key_pixel_y = (
+                self.pac_man.starting_x * cell_size,
+                self.pac_man.starting_y * cell_size,
+            )
+
+            key_w, key_h = self.game_img["key"].get_size()
+            key_x, key_y = self.game_offset_x + key_pixel_x + (
+                cell_size - key_w
+            ) // 2, (
+                self.game_offset_y + key_pixel_y + (cell_size - key_h) // 2
+            )
+
+            self.virtual_screen.blit(self.game_img["key"], (key_x, key_y))
+
+            key_hitbox = self._get_hitbox(key_pixel_x, key_pixel_y, cell_size)
+            pac_man_hitbox = self._get_hitbox(
+                self.pac_man.pixel_x, self.pac_man.pixel_y, cell_size
+            )
+
+            if pac_man_hitbox.colliderect(key_hitbox):
+                self.level_pass_animation = True
+                self.level_pass_animation_time = pygame.time.get_ticks()
 
     def _render_game(self, mouse_x: int, mouse_y: int) -> None:
         self.virtual_screen.blit(self.map_surface, (0, 0))
@@ -967,46 +1121,59 @@ class GameEngine:
             pygame.mixer.music.stop()
             if not self.countdown_play:
                 self.countdown_play = True
-                self.sound["start"].set_volume(0.2)
-                self.sound["start"].play()
+                self._play_sound(None, self.sound["start"], False, 0.2)
             self._render_starting_level()
 
             return
 
         if self.state == GameState.GAME_OVER:
             self._render_game_over(mouse_x, mouse_y)
+            return
 
         elif self.state == GameState.PAUSED:
             self._render_paused_game(mouse_x, mouse_y)
+            return
 
         elif self.state == GameState.PLAYING:
 
+            self._move_entities()
+
+            if self.playing_state == PlayingState.LEVEL_PASS:
+                self._render_level_pass()
+                return
+
             if not self._draw_time_left():
                 self.state = GameState.GAME_OVER
+                pygame.mixer.music.stop()
+                self.music_load = False
+                return
 
             if self.playing_state == PlayingState.DEATH:
                 if not self.music_load:
                     pygame.mixer.music.stop()
-                    self.sound["pacman_death"].set_volume(0.5)
-                    self.sound["pacman_death"].play()
+                    self._play_sound(
+                        None, self.sound["pacman_death"], False, 0.5
+                    )
                     self.music_load = True
 
                 if self._render_pac_man_dying():
                     self.pac_man.dying_time = current_time
                     self.pac_man.mode = Mode.INVICIBLE
+                    self.pac_man.speed = 2
 
                     self.music_load = False
 
                     if self.lives <= 0:
                         self.state = GameState.GAME_OVER
+                        pygame.mixer.music.stop()
                 return
 
             if self.playing_state == PlayingState.POWER:
                 if not self.music_load:
                     pygame.mixer.music.stop()
-                    pygame.mixer.music.load("assets/media/power_pellet.wav")
-                    pygame.mixer.music.set_volume(0.5)
-                    pygame.mixer.music.play(-1)
+                    self._play_sound(
+                        "assets/media/power_pellet.wav", None, True, 0.5
+                    )
                     self.music_load = True
 
                 self._draw_score_eating()
@@ -1026,15 +1193,13 @@ class GameEngine:
                 if current_time > self.pac_man.dying_time + 3000:
                     self.pac_man.mode = Mode.NORMAL
 
-            self._move_entities()
-
             if self._eat_pac_gums():
                 self.score += self.config.points_per_pacgum
 
                 if len(self.pac_gums_coord) % 2:
-                    self.sound["munch_1"].play()
+                    self._play_sound(None, self.sound["munch_1"], False, 0.5)
                 else:
-                    self.sound["munch_2"].play()
+                    self._play_sound(None, self.sound["munch_2"], False, 0.5)
 
             if self._eat_super_pac_gums():
                 self.score += self.config.points_per_super_pacgum
@@ -1046,14 +1211,22 @@ class GameEngine:
                 for ghost in self.ghosts.values():
                     ghost.speed = 1
 
+            if not self.pac_gums_coord:
+                self.playing_state = PlayingState.LEVEL_PASS
+                return
+
             if self._is_pac_man_catch():
                 if self.playing_state == PlayingState.POWER:
                     pass
                 else:
                     self.playing_state = PlayingState.DEATH
+                    self.pac_man.speed = 0
                     self.music_load = False
                     self.death_time = current_time
                     self.lives -= 1
+
+    def _render_win(self, mouse_x: int, mouse_y: int) -> None:
+        pass
 
     def _draw_command(
         self, mouse_x: int, mouse_y: int, height_available: int
@@ -1064,7 +1237,7 @@ class GameEngine:
             self.HEIGHT - height_available
         ) // 2 + 60
 
-        color = self.PURPLE
+        color = self.NEON_PURPLE
 
         if x <= mouse_x <= x + width and y <= mouse_y <= y + height:
             color = self.NEON_PINK
@@ -1099,7 +1272,7 @@ class GameEngine:
         )
 
         basic_w, basic_h = basic_instructions_text_1.get_size()
-        spe_w, spe_h = cheat_instructions_text_1.get_size()
+        spe_w = cheat_instructions_text_1.get_width()
 
         basic_x = x + (width // 2 - basic_w) // 2
         spe_x = x + width // 2 + (width // 2 - spe_w) // 2
@@ -1155,7 +1328,7 @@ class GameEngine:
             self.HEIGHT - height_available
         ) // 3 + height - 10
 
-        color = self.PURPLE
+        color = self.NEON_PURPLE
 
         if x <= mouse_x <= x + width and y <= mouse_y <= y + height:
             color = self.NEON_PINK
@@ -1194,7 +1367,7 @@ class GameEngine:
 
         text_rules = self.font_basic.render(rules, True, color)
 
-        text_rules_w, text_rules_h = text_rules.get_size()
+        text_rules_w = text_rules.get_width()
         text_rules_x, text_rules_y = (
             x + (width - text_rules_w) // 2,
             y + title_h + 15,
@@ -1203,32 +1376,30 @@ class GameEngine:
         self.virtual_screen.blit(text_rules, (text_rules_x, text_rules_y))
 
     def _draw_command_instructions(self, mouse_x: int, mouse_y: int) -> None:
-        w, h = self.virtual_screen.get_size()
-
         title_text_1 = self.font_back.render("Instructions", True, self.GRAY)
         title_text_2 = self.font_front.render(
             "Instructions", True, self.NEON_PINK
         )
 
-        coord = ((w - title_text_1.get_width()) // 2, 20)
+        coord = ((self.WIDTH - title_text_1.get_width()) // 2, 20)
 
         self.virtual_screen.blit(title_text_1, coord)
         self.virtual_screen.blit(title_text_2, coord)
 
         back_text_1 = self.font_back_game_over.render("Back", True, self.GRAY)
         back_text_2 = self.font_front_game_over.render(
-            "Back", True, self.PURPLE
+            "Back", True, self.NEON_PURPLE
         )
         text_width, text_height = back_text_1.get_size()
 
         coord = (
-            (w - back_text_1.get_width()) // 2,
-            h - back_text_1.get_height() - 20,
+            (self.WIDTH - back_text_1.get_width()) // 2,
+            self.HEIGHT - back_text_1.get_height() - 20,
         )
 
         (
-            self.home_page["Back"][0],
-            self.home_page["Back"][1],
+            self.interface["Back_instructions"][0],
+            self.interface["Back_instructions"][1],
         ) = (
             coord[0],
             coord[0] + text_width,
@@ -1243,9 +1414,12 @@ class GameEngine:
             back_text_2 = self.font_front_game_over.render(
                 "Back", True, self.NEON_PINK
             )
+            if not self.interface["Back_instructions"][2]:
+                self._play_sound(None, self.sound["munch_2"], False, 0.5)
+                self.interface["Back_instructions"][2] = True
 
         else:
-            self.home_page["Back"][2] = False
+            self.interface["Back_instructions"][2] = False
 
         self.virtual_screen.blit(back_text_1, coord)
         self.virtual_screen.blit(back_text_2, coord)
@@ -1260,6 +1434,66 @@ class GameEngine:
     def _render_instructions(self, mouse_x: int, mouse_y: int) -> None:
         self._draw_command_instructions(mouse_x, mouse_y)
 
+    def _render_highscores(self, mouse_x: int, mouse_y: int) -> None:
+        title_text_1 = self.font_back.render("Highscores", True, self.GRAY)
+        title_text_2 = self.font_front.render(
+            "Highscores", True, self.NEON_PINK
+        )
+
+        coord = ((self.WIDTH - title_text_1.get_width()) // 2, 20)
+
+        self.virtual_screen.blit(title_text_1, coord)
+        self.virtual_screen.blit(title_text_2, coord)
+
+        text = self.font_basic.render(
+            "Available soon ...", True, self.NEON_PURPLE
+        )
+        self.virtual_screen.blit(
+            text,
+            (
+                (self.WIDTH - text.get_width()) // 2,
+                (self.HEIGHT - text.get_height()) // 2,
+            ),
+        )
+
+        back_text_1 = self.font_back_game_over.render("Back", True, self.GRAY)
+        back_text_2 = self.font_front_game_over.render(
+            "Back", True, self.NEON_PURPLE
+        )
+        text_width, text_height = back_text_1.get_size()
+
+        coord = (
+            (self.WIDTH - back_text_1.get_width()) // 2,
+            self.HEIGHT - back_text_1.get_height() - 20,
+        )
+
+        (
+            self.interface["Back_highscores"][0],
+            self.interface["Back_highscores"][1],
+        ) = (
+            coord[0],
+            coord[0] + text_width,
+        ), (
+            coord[1],
+            coord[1] + text_height,
+        )
+
+        if (coord[0] <= mouse_x <= coord[0] + text_width) and (
+            coord[1] <= mouse_y <= coord[1] + text_height
+        ):
+            back_text_2 = self.font_front_game_over.render(
+                "Back", True, self.NEON_PINK
+            )
+            if not self.interface["Back_highscores"][2]:
+                self._play_sound(None, self.sound["munch_2"], False, 0.5)
+                self.interface["Back_highscores"][2] = True
+
+        else:
+            self.interface["Back_highscores"][2] = False
+
+        self.virtual_screen.blit(back_text_1, coord)
+        self.virtual_screen.blit(back_text_2, coord)
+
     def _draw_home_text(self, mouse_x: int, mouse_y: int) -> int:
         title_img = self.img["title"]
 
@@ -1270,7 +1504,7 @@ class GameEngine:
 
         hover = False
 
-        for key in self.home_page["text"].keys():
+        for key in self.interface["text"].keys():
             coord = (40, h + 120 + offset_y)
 
             text_1 = self.font_back.render(key, True, self.GRAY)
@@ -1281,7 +1515,7 @@ class GameEngine:
                 text_1.get_height(),
             )
 
-            self.home_page["text"][key][0], self.home_page["text"][key][1] = (
+            self.interface["text"][key][0], self.interface["text"][key][1] = (
                 coord[0],
                 coord[0] + text_width,
             ), (coord[1], coord[1] + text_height)
@@ -1290,13 +1524,15 @@ class GameEngine:
                 coord[1] <= mouse_y <= coord[1] + text_height
             ):
                 text_1 = self.font_back.render(key, True, self.NEON_BLUE)
-                if key == "Exit" and not self.home_page["text"][key][2]:
-                    self.sound["munch_2"].play()
-                    self.home_page["text"][key][2] = True
+                if key == "Exit" and not self.interface["text"][key][2]:
+                    self._play_sound(None, self.sound["munch_2"], False, 0.5)
+                    self.interface["text"][key][2] = True
                 else:
-                    if not self.home_page["text"][key][2]:
-                        self.sound["munch_1"].play()
-                        self.home_page["text"][key][2] = True
+                    if not self.interface["text"][key][2]:
+                        self._play_sound(
+                            None, self.sound["munch_1"], False, 0.5
+                        )
+                        self.interface["text"][key][2] = True
                 hover = True
 
             self.virtual_screen.blit(text_1, coord)
@@ -1307,72 +1543,102 @@ class GameEngine:
         self.virtual_screen.blit(title_img, (x, y))
 
         if not hover:
-            for value in self.home_page["text"].values():
+            for value in self.interface["text"].values():
                 value[2] = False
+
+        volume_img = (
+            pygame.transform.scale(self.img["volume_up"], (40, 40))
+            if self.music_on
+            else pygame.transform.scale(self.img["volume_off"], (40, 40))
+        )
+
+        volume_w, volume_h = volume_img.get_size()
+
+        self.interface["volume_home"] = (
+            (40, 40 + volume_w),
+            (120 + h + offset_y, 120 + h + offset_y + volume_h),
+        )
+
+        self.virtual_screen.blit(volume_img, (40, 120 + h + offset_y))
+
+        hover_music_color = self.NEON_GREEN if self.music_on else self.NEON_RED
+
+        if (
+            40 <= mouse_x <= 40 + volume_w
+            and 120 + h + offset_y <= mouse_y <= 120 + h + offset_y + volume_h
+        ):
+            pygame.draw.rect(
+                self.virtual_screen,
+                hover_music_color,
+                pygame.Rect(
+                    40 - 1, 120 + h + offset_y - 1, volume_w + 2, volume_h + 2
+                ),
+                1,
+            )
 
         return h
 
     def _draw_home_animation(self, h: int) -> None:
         offset_x = 0
 
-        if not self.home_page["counter"] % 2:
-            width, height = self.home_page[1]["ghosts"][0].get_size()
+        if not self.interface["counter"] % 2:
+            width, height = self.interface[1]["ghosts"][0].get_size()
 
-            for ghost in self.home_page[1]["ghosts"]:
+            for ghost in self.interface[1]["ghosts"]:
                 if isinstance(ghost, pygame.Surface):
-                    x, y = self.home_page["pos_x"] + offset_x, h - height
+                    x, y = self.interface["pos_x"] + offset_x, h - height
                     self.virtual_screen.blit(ghost, (x, y))
 
                     offset_x += width + 10
 
-            self.home_page["anim_counter"] += 1
-            anim_frame = self.home_page["anim_counter"]
-            pac_man_img = self.home_page[1]["pac_man"][(anim_frame // 4) % 4]
+            self.interface["anim_counter"] += 1
+            anim_frame = self.interface["anim_counter"]
+            pac_man_img = self.interface[1]["pac_man"][(anim_frame // 4) % 4]
 
             pac_man = pygame.transform.scale(pac_man_img, (width, height))
 
             self.virtual_screen.blit(
                 pac_man,
-                (self.home_page["pos_x"] + offset_x + 20, h - height),
+                (self.interface["pos_x"] + offset_x + 20, h - height),
             )
-            self.home_page["pos_x"] += 2
+            self.interface["pos_x"] += 2
 
-            if self.home_page["pos_x"] == self.virtual_screen.get_width():
-                self.home_page["counter"] += 1
-                self.home_page["pos_x"] = -self.home_page["start_x"]
+            if self.interface["pos_x"] == self.virtual_screen.get_width():
+                self.interface["counter"] += 1
+                self.interface["pos_x"] = -self.interface["start_x"]
         else:
-            width, height = self.home_page[1]["ghosts"][0].get_size()
+            width, height = self.interface[1]["ghosts"][0].get_size()
 
-            self.home_page["anim_counter"] += 1
-            anim_frame = self.home_page["anim_counter"]
-            pac_man_img = self.home_page[1]["pac_man"][(anim_frame // 4) % 4]
+            self.interface["anim_counter"] += 1
+            anim_frame = self.interface["anim_counter"]
+            pac_man_img = self.interface[1]["pac_man"][(anim_frame // 4) % 4]
 
             pac_man = pygame.transform.scale(pac_man_img, (width, height))
 
             self.virtual_screen.blit(
                 pac_man,
-                (self.home_page["pos_x"], h - height),
+                (self.interface["pos_x"], h - height),
             )
 
             offset_x = width + 20
 
             for i in range(4):
                 ghost_scared = pygame.transform.scale(
-                    self.home_page[2]["scared"][(anim_frame // 8) % 2],
+                    self.interface[2]["scared"][(anim_frame // 8) % 2],
                     (width, height),
                 )
                 self.virtual_screen.blit(
                     ghost_scared,
-                    (self.home_page["pos_x"] + offset_x, h - height),
+                    (self.interface["pos_x"] + offset_x, h - height),
                 )
 
                 offset_x += width + 10
 
-            self.home_page["pos_x"] += 2
+            self.interface["pos_x"] += 2
 
-            if self.home_page["pos_x"] == self.virtual_screen.get_width():
-                self.home_page["counter"] += 1
-                self.home_page["pos_x"] = -self.home_page["start_x"]
+            if self.interface["pos_x"] == self.virtual_screen.get_width():
+                self.interface["counter"] += 1
+                self.interface["pos_x"] = -self.interface["start_x"]
 
     def _render_home(self, mouse_x: int, mouse_y: int) -> None:
         h = self._draw_home_text(mouse_x, mouse_y)
@@ -1385,6 +1651,10 @@ class GameEngine:
             self._render_home(mouse_x, mouse_y)
         elif self.state == GameState.INFO:
             self._render_instructions(mouse_x, mouse_y)
+        elif self.state == GameState.SCORE:
+            self._render_highscores(mouse_x, mouse_y)
+        elif self.state == GameState.WIN:
+            self._render_win(mouse_x, mouse_y)
         else:
             self._render_game(mouse_x, mouse_y)
 
@@ -1398,7 +1668,7 @@ class GameEngine:
             if self.state == GameState.MENU:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
-                        for key, value in self.home_page["text"].items():
+                        for key, value in self.interface["text"].items():
                             x_min, x_max = value[0]
                             y_min, y_max = value[1]
 
@@ -1407,6 +1677,7 @@ class GameEngine:
                             ):
                                 if key == "Start Game":
                                     self.state = GameState.STARTING_LEVEL
+                                    self.playing_state = PlayingState.RETREATE
                                     self.current_level = 1
                                     self.score = 0
                                     self.lives = self.config.lives
@@ -1419,6 +1690,21 @@ class GameEngine:
                                     self.state = GameState.INFO
                                 elif key == "Exit":
                                     return False
+                        x_min_volume, x_max_volume = self.interface[
+                            "volume_home"
+                        ][0]
+                        y_min_volume, y_max_volume = self.interface[
+                            "volume_home"
+                        ][1]
+
+                        if (x_min_volume <= mouse_x <= x_max_volume) and (
+                            y_min_volume <= mouse_y <= y_max_volume
+                        ):
+                            if not self.music_on:
+                                self.music_on = True
+                            else:
+                                self.music_on = False
+                                pygame.mixer.music.stop()
 
             elif self.state == GameState.PLAYING:
                 if event.type == pygame.KEYDOWN:
@@ -1433,23 +1719,34 @@ class GameEngine:
                     elif event.key == pygame.K_SPACE:
                         self._load_pause_info()
                         self.state = GameState.PAUSED
+                        pygame.mixer.music.stop()
+                        self.music_load = False
+                    elif event.key == pygame.K_l:
+                        self.pac_gums_coord = []
 
             elif self.state == GameState.PAUSED:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
-                        x_min_exit, x_max_exit = self.home_page["exit_paused"][
+                        x_min_exit, x_max_exit = self.interface["Exit_paused"][
                             0
                         ]
-                        y_min_exit, y_max_exit = self.home_page["exit_paused"][
+                        y_min_exit, y_max_exit = self.interface["Exit_paused"][
                             1
                         ]
 
-                        x_min_resume, x_max_resume = self.home_page[
+                        x_min_resume, x_max_resume = self.interface[
                             "resume_paused"
                         ][0]
-                        y_min_resume, y_max_resume = self.home_page[
+                        y_min_resume, y_max_resume = self.interface[
                             "resume_paused"
                         ][1]
+
+                        x_min_volume, x_max_volume = self.interface["volume"][
+                            0
+                        ]
+                        y_min_volume, y_max_volume = self.interface["volume"][
+                            1
+                        ]
 
                         if (x_min_exit <= mouse_x <= x_max_exit) and (
                             y_min_exit <= mouse_y <= y_max_exit
@@ -1461,15 +1758,31 @@ class GameEngine:
                         ):
                             self.state = GameState.PLAYING
                             self._depause_game()
+                        elif (x_min_volume <= mouse_x <= x_max_volume) and (
+                            y_min_volume <= mouse_y <= y_max_volume
+                        ):
+                            if not self.music_on:
+                                self.music_on = True
+                            else:
+                                self.music_on = False
+                                pygame.mixer.music.stop()
 
             elif self.state == GameState.SCORE:
-                pass
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        x_min, x_max = self.interface["Back_highscores"][0]
+                        y_min, y_max = self.interface["Back_highscores"][1]
+
+                        if (x_min <= mouse_x <= x_max) and (
+                            y_min <= mouse_y <= y_max
+                        ):
+                            self.state = GameState.MENU
 
             elif self.state == GameState.GAME_OVER:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
-                        x_min, x_max = self.home_page["back_game_over"][0]
-                        y_min, y_max = self.home_page["back_game_over"][1]
+                        x_min, x_max = self.interface["Back_game_over"][0]
+                        y_min, y_max = self.interface["Back_game_over"][1]
 
                         if (x_min <= mouse_x <= x_max) and (
                             y_min <= mouse_y <= y_max
@@ -1479,8 +1792,8 @@ class GameEngine:
             elif self.state == GameState.INFO:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
-                        x_min, x_max = self.home_page["Back"][0]
-                        y_min, y_max = self.home_page["Back"][1]
+                        x_min, x_max = self.interface["Back_instructions"][0]
+                        y_min, y_max = self.interface["Back_instructions"][1]
 
                         if (x_min <= mouse_x <= x_max) and (
                             y_min <= mouse_y <= y_max
@@ -1498,6 +1811,7 @@ class GameEngine:
                 for ghost in self.ghosts.values():
                     ghost.speed = 2
 
+                self.level_pass_animation = False
                 self.state = GameState.PLAYING
                 self.playing_state = PlayingState.RETREATE
                 self.pac_man.set_direction(Directions.UP)
@@ -1523,9 +1837,7 @@ class GameEngine:
         clock = pygame.time.Clock()
         running = True
 
-        pygame.mixer.music.load("assets/media/game_start.wav")
-        pygame.mixer.music.set_volume(0.5)
-        pygame.mixer.music.play(1)
+        self._play_sound("assets/media/game_start.wav", None, False, 0.5)
 
         while running:
             clock.tick(60)
