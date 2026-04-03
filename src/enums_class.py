@@ -29,5 +29,5 @@ class PlayingState(Enum):
 class Mode(Enum):
     NORMAL = auto()
     EAT = auto()
-    INVICIBLE = auto()
+    INVINCIBLE = auto()
     SCARED = auto()

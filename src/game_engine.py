@@ -47,6 +47,8 @@ class GameEngine:
         self.pseudo = ""
         self.pseudo_valid: bool = False
         self.input_cursor_i: int = 0
+        self.speed_cheat: bool = False
+        self.freeze_cheat: bool = False
 
     def _get_scale(self) -> Any:
         win_w, win_h = self.real_screen.get_size()
@@ -601,18 +603,30 @@ class GameEngine:
                 elif ghost.mode == Mode.EAT:
                     if ghost.move_to_start_pos(self.map):
                         ghost.mode = Mode.NORMAL
-                        ghost.speed = 1
+                        if not self.freeze_cheat:
+                            ghost.speed = 1
 
         else:
             for ghost in self.ghosts.values():
                 if ghost.mode == Mode.NORMAL:
-                    ghost.move_random(self.map)
+                    if (
+                        ghost.name == "blinky"
+                        and self.pac_man.mode != Mode.INVINCIBLE
+                    ):
+                        ghost.move(
+                            self.map, self.pac_man.grid_x, self.pac_man.grid_y
+                        )
+                    else:
+                        ghost.move_random(self.map)
                     # Rajouter un if pac_man.mode == Mode.INVINCIBLE
                     # else avec le vrai algo des fantomes ghost.move()
                 elif ghost.mode == Mode.EAT:
                     if ghost.move_to_start_pos(self.map):
                         ghost.mode = Mode.NORMAL
-                        ghost.speed = 2
+                        if not self.freeze_cheat:
+                            ghost.speed = 2
+                        else:
+                            ghost.speed = 0
 
     def _eat_pac_gums(self) -> bool:
         cell_size = self.pac_man.cell_size
@@ -681,7 +695,8 @@ class GameEngine:
             if pac_rect.colliderect(ghost_rect):
                 if (
                     ghost.mode == Mode.NORMAL
-                    and self.pac_man.mode != Mode.INVICIBLE
+                    and self.pac_man.mode != Mode.INVINCIBLE
+                    and self.playing_state != PlayingState.POWER
                 ):
                     self.playing_state = PlayingState.DEATH
                     self.pac_man.speed = 0
@@ -713,7 +728,7 @@ class GameEngine:
             - 1
         )
 
-        if self.pac_man.mode == Mode.INVICIBLE:
+        if self.pac_man.mode == Mode.INVINCIBLE:
             self.pause_info["pac_man_dying_elapsed_time"] = (
                 current_time - self.pac_man.dying_time
             )
@@ -728,35 +743,6 @@ class GameEngine:
             ghost.speed = 0
 
         self.pac_man.speed = 0
-
-    def _depause_game(self) -> None:
-        current_time = pygame.time.get_ticks()
-
-        for name, ghost in self.ghosts.items():
-            ghost.speed = self.pause_info[name]
-
-        self.pac_man.speed = 2
-
-        self.level_starting_time = (
-            current_time
-            - (self.config.level_max_time - self.pause_info["time_left"])
-            * 1000
-        ) + 1000
-
-        if self.pac_man.mode == Mode.INVICIBLE:
-            self.pac_man.dying_time = (
-                current_time - self.pause_info["pac_man_dying_elapsed_time"]
-            )
-
-        if self.playing_state == PlayingState.POWER:
-            self.power_time = (
-                current_time - self.pause_info["power_elapsed_time"]
-            )
-            if not self.music_load:
-                self._play_sound(
-                    "assets/media/power_pellet.wav", None, True, 0.5
-                )
-                self.music_load = True
 
     def _render_starting_level(self) -> None:
 
@@ -951,6 +937,38 @@ class GameEngine:
 
         self.virtual_screen.blit(paused_surface, (x, y))
 
+    def _depause_game(self) -> None:
+        current_time = pygame.time.get_ticks()
+
+        for name, ghost in self.ghosts.items():
+            ghost.speed = self.pause_info[name]
+
+        if self.speed_cheat:
+            self.pac_man.speed = 4
+        else:
+            self.pac_man.speed = 2
+
+        self.level_starting_time = (
+            current_time
+            - (self.config.level_max_time - self.pause_info["time_left"])
+            * 1000
+        ) + 1000
+
+        if self.pac_man.mode == Mode.INVINCIBLE:
+            self.pac_man.dying_time = (
+                current_time - self.pause_info["pac_man_dying_elapsed_time"]
+            )
+
+        if self.playing_state == PlayingState.POWER:
+            self.power_time = (
+                current_time - self.pause_info["power_elapsed_time"]
+            )
+            if not self.music_load:
+                self._play_sound(
+                    "assets/media/power_pellet.wav", None, True, 0.5
+                )
+                self.music_load = True
+
     def _render_pac_man_dying(self) -> bool:
         x, y = self.pac_man.pixel_x, self.pac_man.pixel_y
         cell_size = self.pac_man.cell_size
@@ -960,7 +978,10 @@ class GameEngine:
         if self.death_time + 1200 <= current_time:
             self.pac_man.reset_pos()
             self.playing_state = PlayingState.RETREATE
-            self.pac_man.speed = 2
+            if self.speed_cheat:
+                self.pac_man.speed = 4
+            else:
+                self.pac_man.speed = 2
 
             return True
 
@@ -1263,8 +1284,7 @@ class GameEngine:
 
                 if self._render_pac_man_dying():
                     self.pac_man.dying_time = current_time
-                    self.pac_man.mode = Mode.INVICIBLE
-                    self.pac_man.speed = 2
+                    self.pac_man.mode = Mode.INVINCIBLE
 
                     self.music_load = False
 
@@ -1291,11 +1311,14 @@ class GameEngine:
                     for ghost in self.ghosts.values():
                         if ghost.mode != Mode.EAT:
                             ghost.mode = Mode.NORMAL
-                            ghost.speed = 2
+                            if not self.freeze_cheat:
+                                ghost.speed = 2
+                            else:
+                                ghost.speed = 0
             else:
                 pygame.mixer.music.stop()
 
-            if self.pac_man.mode == Mode.INVICIBLE:
+            if self.pac_man.mode == Mode.INVINCIBLE:
                 if current_time > self.pac_man.dying_time + 3000:
                     self.pac_man.mode = Mode.NORMAL
 
@@ -1317,31 +1340,34 @@ class GameEngine:
                 for ghost in self.ghosts.values():
                     if ghost.mode != Mode.EAT:
                         ghost.mode = Mode.SCARED
-                        ghost.speed = 1
+                        if not self.freeze_cheat:
+                            ghost.speed = 1
 
             if not self.pac_gums_coord:
                 self.playing_state = PlayingState.LEVEL_PASS
+                self.freeze_cheat = False
+                self.speed_cheat = False
                 return
 
             self._is_pac_man_catch()
 
     def _render_win(self, mouse_x: int, mouse_y: int) -> None:
-        ratio = (
-            self.img["firework"].get_width()
-            / self.img["firework"].get_height()
-        )
+        # ratio = (
+        #     self.img["firework"].get_width()
+        #     / self.img["firework"].get_height()
+        # )
 
-        new_w = 300
-        new_h = int(new_w / ratio)
+        # new_w = 300
+        # new_h = int(new_w / ratio)
 
-        new_firework_img = pygame.transform.scale(
-            self.img["firework"], (new_w, new_h)
-        )
+        # new_firework_img = pygame.transform.scale(
+        #     self.img["firework"], (new_w, new_h)
+        # )
 
-        self.virtual_screen.blit(new_firework_img, (60, 20))
-        self.virtual_screen.blit(
-            new_firework_img, (self.WIDTH - new_w - 60, 20)
-        )
+        # self.virtual_screen.blit(new_firework_img, (60, 20))
+        # self.virtual_screen.blit(
+        #     new_firework_img, (self.WIDTH - new_w - 60, 20)
+        # )
 
         pop_up_surface = pygame.Surface(
             (int(self.WIDTH / 1.5), self.HEIGHT // 3), pygame.SRCALPHA
@@ -1910,14 +1936,15 @@ class GameEngine:
                                 if key == "Start Game":
                                     self.state = GameState.STARTING_LEVEL
                                     self.playing_state = PlayingState.RETREATE
-                                    self.current_level = 10
+                                    self.current_level = 1
                                     self.score = 0
-                                    # self.lives = self.config.lives
+                                    self.lives = self.config.lives
                                     self.pseudo = ""
-                                    self.lives = 1
                                     self.countdown_play = False
                                     self._generate_map()
                                     self.home_page_sound_play = False
+                                    self.speed_cheat = False
+                                    self.freeze_cheat = False
 
                                 elif key == "View Highscores":
                                     self.state = GameState.SCORE
@@ -1958,6 +1985,36 @@ class GameEngine:
                         self.music_load = False
                     elif event.key == pygame.K_l:
                         self.pac_gums_coord = []
+                    elif event.key == pygame.K_s:
+                        if not self.speed_cheat:
+                            self.speed_cheat = True
+                            self.pac_man.speed *= 2
+                        else:
+                            self.speed_cheat = False
+                            self.pac_man.speed //= 2
+                    elif event.key == pygame.K_p:
+                        self.playing_state = PlayingState.POWER
+                        self.music_load = False
+                        self.power_time = pygame.time.get_ticks()
+
+                        for ghost in self.ghosts.values():
+                            if ghost.mode != Mode.EAT:
+                                ghost.mode = Mode.SCARED
+                                if not self.freeze_cheat:
+                                    ghost.speed = 1
+                    elif event.key == pygame.K_f:
+                        if not self.freeze_cheat:
+                            self.freeze_cheat = True
+                            for ghost in self.ghosts.values():
+                                if ghost.mode != Mode.EAT:
+                                    ghost.speed = 0
+                        else:
+                            self.freeze_cheat = False
+                            for ghost in self.ghosts.values():
+                                if self.playing_state == PlayingState.POWER:
+                                    ghost.speed = 1
+                                else:
+                                    ghost.speed = 2
 
             elif self.state == GameState.PAUSED:
                 if event.type == pygame.MOUSEBUTTONDOWN:

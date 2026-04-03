@@ -39,6 +39,7 @@ class Entity(ABC):
         self.next_direction: Directions | None = None
 
         self.moving = False
+        self.j = 0
 
     def _is_wall(
         self,
@@ -316,7 +317,12 @@ class Ghost(Entity, ABC):
 
                 current_img = self.scared_img[i]
             else:
-                if self.speed == 0 or self.direction is None:
+                if playing_state == PlayingState.POWER:
+                    self.j += 1
+                    if (self.j // 8) % 2:
+                        return
+
+                if self.direction is None:
                     current_img = (
                         self.img[self.name + "_right"]
                         if self.grid_x == 0
@@ -363,11 +369,38 @@ class Blinky(Ghost):
         super().__init__(
             name, grid_x, grid_y, speed, cell_size, img, scared_img, eaten_img
         )
+        self.path_to_pac_man: List[Tuple[int, int]] | None = None
 
     def move(
         self, map: List[List[List[int]]], pac_grid_x: int, pac_grid_y: int
     ) -> None:
-        pass
+        if self.path_to_pac_man is None:
+            self.path_to_pac_man = self._find_fastest_way_to(
+                map, pac_grid_x, pac_grid_y
+            )
+
+            if not self.path_to_pac_man:
+                return
+
+            self.target_y, self.target_x = (
+                self.path_to_pac_man[-1][0] * self.cell_size,
+                self.path_to_pac_man[-1][1] * self.cell_size,
+            )
+
+        if self.pixel_x == self.target_x and self.pixel_y == self.target_y:
+            self.path_to_pac_man = None
+            self.grid_x = int(self.target_x // self.cell_size)
+            self.grid_y = int(self.target_y // self.cell_size)
+            return
+
+        if self.pixel_x < self.target_x:
+            self.pixel_x = min(self.pixel_x + self.speed, self.target_x)
+        elif self.pixel_x > self.target_x:
+            self.pixel_x = max(self.pixel_x - self.speed, self.target_x)
+        elif self.pixel_y < self.target_y:
+            self.pixel_y = min(self.pixel_y + self.speed, self.target_y)
+        elif self.pixel_y > self.target_y:
+            self.pixel_y = max(self.pixel_y - self.speed, self.target_y)
 
 
 class Clyde(Ghost):
@@ -448,7 +481,6 @@ class PacMan(Entity):
     ) -> None:
         super().__init__(name, grid_x, grid_y, speed, cell_size, img)
         self.dying_time: int = 0
-        self.j = 0
 
         self.rotation = {
             Directions.UP: 90,
@@ -534,7 +566,7 @@ class PacMan(Entity):
             "pac_2"
         ]
 
-        if self.mode == Mode.INVICIBLE:
+        if self.mode == Mode.INVINCIBLE:
             self.j += 1
 
             if (self.j // 8) % 2:
