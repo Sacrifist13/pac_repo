@@ -49,6 +49,8 @@ class GameEngine:
         self.input_cursor_i: int = 0
         self.speed_cheat: bool = False
         self.freeze_cheat: bool = False
+        self.enter_pressed: bool = False
+        self.input_done: bool = False
 
     def _get_scale(self) -> Any:
         win_w, win_h = self.real_screen.get_size()
@@ -111,7 +113,7 @@ class GameEngine:
 
     def _init_game(self) -> None:
         self.state = GameState.MENU
-        self.img: Dict[str, pygame.Surface] = {}
+        self.img: Dict[str, pygame.Surface | pygame.surface.Surface] = {}
         self.sound: Dict[str, Any] = {}
 
         loader = Loader()
@@ -1058,6 +1060,21 @@ class GameEngine:
                 )
                 surface.blit(inst_text, (inst_text_x, inst_text_y))
             else:
+                if self.enter_pressed:
+                    warning_message = self.font_basic_small.render(
+                        "Username cannot be empty.", True, self.NEON_RED
+                    )
+                    warning_message_w, warning_message_h = (
+                        warning_message.get_size()
+                    )
+                    warning_message_x, warning_message_y = (
+                        input_window_x
+                        + (input_window_w - warning_message_w) // 2,
+                        input_window_y - warning_message_h - 10,
+                    )
+                    surface.blit(
+                        warning_message, (warning_message_x, warning_message_y)
+                    )
                 self.pseudo_valid = False
 
         surface.blit(input_window, (input_window_x, input_window_y))
@@ -1352,23 +1369,6 @@ class GameEngine:
             self._is_pac_man_catch()
 
     def _render_win(self, mouse_x: int, mouse_y: int) -> None:
-        # ratio = (
-        #     self.img["firework"].get_width()
-        #     / self.img["firework"].get_height()
-        # )
-
-        # new_w = 300
-        # new_h = int(new_w / ratio)
-
-        # new_firework_img = pygame.transform.scale(
-        #     self.img["firework"], (new_w, new_h)
-        # )
-
-        # self.virtual_screen.blit(new_firework_img, (60, 20))
-        # self.virtual_screen.blit(
-        #     new_firework_img, (self.WIDTH - new_w - 60, 20)
-        # )
-
         pop_up_surface = pygame.Surface(
             (int(self.WIDTH / 1.5), self.HEIGHT // 3), pygame.SRCALPHA
         )
@@ -2098,7 +2098,7 @@ class GameEngine:
                             self.in_typing = True
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_RETURN:
-                        pass
+                        self.enter_pressed = True
                     elif event.key == pygame.K_BACKSPACE:
                         if self.pseudo:
                             self.pseudo = self.pseudo[:-1]

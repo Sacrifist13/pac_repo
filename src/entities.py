@@ -382,10 +382,22 @@ class Blinky(Ghost):
             if not self.path_to_pac_man:
                 return
 
+            y, x = self.path_to_pac_man[-1][0], self.path_to_pac_man[-1][1]
+
             self.target_y, self.target_x = (
-                self.path_to_pac_man[-1][0] * self.cell_size,
-                self.path_to_pac_man[-1][1] * self.cell_size,
+                y * self.cell_size,
+                x * self.cell_size,
             )
+
+            directions = {
+                (-1, 0): Directions.UP,
+                (1, 0): Directions.DOWN,
+                (0, 1): Directions.RIGHT,
+                (0, -1): Directions.LEFT,
+            }
+
+            dy, dx = y - self.grid_y, x - self.grid_x
+            self.direction = directions[(dy, dx)]
 
         if self.pixel_x == self.target_x and self.pixel_y == self.target_y:
             self.path_to_pac_man = None
