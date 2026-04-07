@@ -25,6 +25,60 @@ class GameEngine:
     NEON_GREEN = (57, 255, 20)
 
     def __init__(self) -> None:
+        """
+        Initializes the GameEngine instance.
+
+        This method configures the initial game state, instantiates
+        external managers (map and assets), and prepares all tracking
+        variables required for the gameplay loop (score, timers, interface,
+        animations, and user input).
+
+        Attributes:
+            map_generator (MapGenerator): Instance responsible for map
+                creation and generation.
+            assets_manager (AssetsManager): Manager for graphic and audio
+                resources.
+            playing_state (PlayingState): Current gameplay state
+                (initialized to RETREATE).
+            death_time (int): Timestamp (in milliseconds) of Pac-Man's
+                death.
+            power_time (int): Timestamp (in milliseconds) of consuming a
+                super pac-gum.
+            time_score_eating (int): Timestamp for the temporary display of
+                a consumed ghost's score.
+            score_eating_coord (Tuple[int, int]): (y, x) coordinates for
+                rendering the consumed ghost's score.
+            score_eating (int): Point value of the last consumed ghost.
+            current_level (int): The player's current level (starts at 1).
+            score (int): Total score accumulated by the player.
+            lives (int): Number of remaining lives for the player.
+            ghosts_eat (int): Counter for consecutively eaten ghosts while
+                powered up.
+            pause_info (Dict[Any, Any]): Dictionary storing states (time,
+                speeds) during gameplay pause.
+            level_pass_animation (bool): Flag indicating if the level
+                transition animation is currently active.
+            level_pass_animation_time (int): Timestamp for the trigger of
+                the level completion animation.
+            home_page_sound_play (bool): Flag preventing the home screen
+                music from continuously looping.
+            in_typing (bool): Flag indicating whether the user currently
+                has focus on the text input area.
+            pseudo (str): Username entered by the player for high score
+                recording.
+            pseudo_valid (bool): Validation flag confirming if the username
+                meets input criteria.
+            input_cursor_i (int): Counter utilized to animate the blinking
+                text input cursor.
+            speed_cheat (bool): Activation flag for the cheat code that
+                increases Pac-Man's movement speed.
+            freeze_cheat (bool): Activation flag for the cheat code that
+                immobilizes all ghosts.
+            enter_pressed (bool): Flag indicating if the 'Enter' key was
+                triggered during text input.
+            input_done (bool): Flag confirming that the username input
+                process is complete and saved.
+        """
         self.map_generator = MapGenerator()
         self.assets_manager = AssetsManager()
         self.playing_state = PlayingState.RETREATE
@@ -51,6 +105,23 @@ class GameEngine:
         self.input_done: bool = False
 
     def _get_scale(self) -> Any:
+        """
+        Calculates screen scaling, centering offsets, and virtual mouse coords.
+
+        This method scales the internal virtual screen to fit the physical
+        display window while maintaining its aspect ratio. It calculates the
+        necessary offsets to center the game view and translates the current
+        raw mouse positions into the virtual coordinate system.
+
+        Returns:
+            tuple: A 6-element tuple containing the following values:
+                - new_w (int): Scaled width of the virtual screen.
+                - new_h (int): Scaled height of the virtual screen.
+                - offset_x (int): Horizontal padding to center the screen.
+                - offset_y (int): Vertical padding to center the screen.
+                - virtual_mouse_x (float): Mouse X in virtual coordinates.
+                - virtual_mouse_y (float): Mouse Y in virtual coordinates.
+        """
         win_w, win_h = self.real_screen.get_size()
         virt_w, virt_h = self.virtual_screen.get_size()
 
@@ -80,6 +151,25 @@ class GameEngine:
     def _get_hitbox(
         self, pixel_x: int, pixel_y: int, cell_size: int, ratio: float = 0.5
     ) -> pygame.Rect:
+        """
+        Calculates and returns a centered collision bounding box.
+
+        This method generates a smaller, centered hitbox relative to the
+        entity's full cell size. This prevents frustrating collisions by
+        giving the player a slight margin of error when turning corners or
+        passing close to objects.
+
+        Args:
+            pixel_x (int): The top-left X coordinate of the entity's cell.
+            pixel_y (int): The top-left Y coordinate of the entity's cell.
+            cell_size (int): The width and height of the grid cell.
+            ratio (float, optional): The size ratio of the hitbox relative
+                to the cell size. Defaults to 0.5.
+
+        Returns:
+            pygame.Rect: A rectangle representing the centered hitbox for
+                collision detection.
+        """
         hitbox_size = int(cell_size * ratio)
         offset = (cell_size - hitbox_size) // 2
         return pygame.Rect(
@@ -95,11 +185,39 @@ class GameEngine:
         y_min: int,
         y_max: int,
     ) -> bool:
+        """
+        Determines if the mouse cursor is hovering over a rectangular area.
+
+        This method checks if the provided mouse coordinates fall within the
+        boundaries of a defined rectangle. It is commonly used for detecting
+        user interactions with UI elements like buttons or menu options.
+
+        Args:
+            mouse_x (int): The current X coordinate of the mouse cursor.
+            mouse_y (int): The current Y coordinate of the mouse cursor.
+            x_min (int): The left boundary (minimum X) of the target area.
+            x_max (int): The right boundary (maximum X) of the target area.
+            y_min (int): The top boundary (minimum Y) of the target area.
+            y_max (int): The bottom boundary (maximum Y) of the target area.
+
+        Returns:
+            bool: True if the mouse coordinates are inside the boundaries,
+                False otherwise.
+        """
         if x_min <= mouse_x <= x_max and y_min <= mouse_y <= y_max:
             return True
         return False
 
     def _init_game(self) -> None:
+        """
+        Initializes the core game components and user interface elements.
+
+        This method sets the initial game state to the main menu, loads
+        configuration settings via the Loader, and initializes the assets
+        manager. It also constructs the primary interface dictionary, which
+        stores animation counters, character sprites (Pac-Man and ghosts),
+        and bounding box coordinates for menu text interactions.
+        """
         self.state = GameState.MENU
 
         loader = Loader()
@@ -153,30 +271,24 @@ class GameEngine:
         ) - (60)
         self.interface["start_x"] = -self.interface["pos_x"]
 
-        font_size = 40
-        self.font_back = pygame.font.Font("assets/font/back.otf", font_size)
-        self.font_front = pygame.font.Font("assets/font/front.otf", font_size)
-
-        self.font_back_game_over = pygame.font.Font(
-            "assets/font/back.otf", int(font_size / 1.5)
-        )
-        self.font_front_game_over = pygame.font.Font(
-            "assets/font/front.otf", int(font_size / 1.5)
-        )
-
-        self.font_back_countdown = pygame.font.Font(
-            "assets/font/back.otf", font_size * 3
-        )
-        self.font_front_countdown = pygame.font.Font(
-            "assets/font/front.otf", font_size * 3
-        )
-
-        self.font_basic = pygame.font.Font("assets/font/basic.ttf", 14)
-        self.font_basic_small = pygame.font.Font("assets/font/basic.ttf", 11)
-
     def _load_map_elements(
         self, logo: List[Tuple[int, int]], margin: int = 80
     ) -> None:
+        """
+        Loads map elements, initializes entities, and draws static walls.
+
+        This method prepares the visual and logical foundation of the level.
+        It calculates the optimal cell size to fit the screen, initializes
+        Pac-Man and the ghosts at their starting positions, and iterates
+        through the map grid to draw the maze walls using bitwise flags.
+        It also generates the coordinates for standard and super pac-gums.
+
+        Args:
+            logo (List[Tuple[int, int]]): A list of (x, y) grid coordinates
+                representing the central logo or restricted spawn area.
+            margin (int, optional): The pixel margin around the outer edge
+                of the game map. Defaults to 80.
+        """
         self.map_surface = pygame.Surface(
             (self.WIDTH, self.HEIGHT), pygame.SRCALPHA
         )
@@ -318,6 +430,18 @@ class GameEngine:
                     )
 
     def _generate_map(self) -> bool:
+        """
+        Generates and loads the game map for the current level.
+
+        This method checks if the current level exceeds the maximum limit
+        (level 10). If within limits, it generates a new map layout, loads
+        its visual and logical elements, and initializes the pre-level
+        countdown timer.
+
+        Returns:
+            bool: True if the map was successfully generated, or False if
+                the player has passed the final level (level > 10).
+        """
         if self.current_level > 10:
             return False
 
@@ -330,6 +454,18 @@ class GameEngine:
         return True
 
     def _draw_time_left(self) -> bool:
+        """
+        Calculates and renders the remaining time for the current level.
+
+        This method computes the time left by comparing the current elapsed
+        time against the level's starting time and maximum allowed duration.
+        If time runs out, it signals the end of the game or level. Otherwise,
+        it renders the remaining seconds at the bottom center of the screen.
+
+        Returns:
+            bool: True if there is time remaining and the text was successfully
+                rendered, or False if the countdown has reached zero.
+        """
         current_time = pygame.time.get_ticks()
 
         time_left_s = (
@@ -344,7 +480,7 @@ class GameEngine:
         if time_left_s <= 0:
             return False
 
-        time_left_text = self.font_basic.render(
+        time_left_text = self.assets_manager.f_basic.render(
             str(time_left_s), True, self.NEON_PINK
         )
 
@@ -358,6 +494,15 @@ class GameEngine:
         return True
 
     def _draw_pac_gums(self) -> None:
+        """
+        Renders all regular and super pac-gums on the virtual screen.
+
+        This method calculates the exact pixel coordinates for each pac-gum
+        and super pac-gum based on their grid positions. It ensures they
+        are properly centered within their respective cells, applies the
+        current game offsets, and draws the corresponding asset images to
+        the surface. It also updates the internal counts for both types.
+        """
         c_size = self.pac_man.cell_size
 
         pac_gum_w, pac_gum_h = self.assets_manager.game_img[
@@ -396,10 +541,18 @@ class GameEngine:
             )
 
     def _draw_game_status(self) -> None:
-        level_text_1 = self.font_back.render(
+        """
+        Renders the top HUD displaying the level, score, and lives.
+
+        This method draws the current level text centered at the top, the
+        player's current score on the left, and graphical icons representing
+        remaining lives on the right. Lost lives are visually indicated by
+        rendering a semi-transparent dark overlay over the life icons.
+        """
+        level_text_1 = self.assets_manager.f_back.render(
             "Level " + str(self.current_level), True, self.NEON_BLUE
         )
-        level_text_2 = self.font_front.render(
+        level_text_2 = self.assets_manager.f_front.render(
             "Level " + str(self.current_level), True, self.PACMAN_YELLOW
         )
 
@@ -410,8 +563,10 @@ class GameEngine:
         self.virtual_screen.blit(level_text_1, (level_text_x, level_text_y))
         self.virtual_screen.blit(level_text_2, (level_text_x, level_text_y))
 
-        score_text_1 = self.font_basic.render("Score ", True, self.GRAY)
-        score_text_2 = self.font_basic.render(
+        score_text_1 = self.assets_manager.f_basic.render(
+            "Score ", True, self.GRAY
+        )
+        score_text_2 = self.assets_manager.f_basic.render(
             str(self.score), True, self.NEON_PINK
         )
 
@@ -447,6 +602,14 @@ class GameEngine:
             pac_img_x += 5 + pac_img_life.get_width()
 
     def _draw_entities(self) -> None:
+        """
+        Draws all dynamic game entities onto the virtual screen.
+
+        This method iterates through the game's dynamic characters (Pac-Man
+        and the ghosts) and triggers their internal rendering methods based
+        on the current playing state. Pac-Man is hidden during his death
+        animation, and ghosts are hidden during the level transition phase.
+        """
         if self.playing_state != PlayingState.DEATH:
             self.pac_man.draw_on_surface(
                 self.virtual_screen,
@@ -464,7 +627,19 @@ class GameEngine:
                 )
 
     def _move_entities(self) -> None:
+        """
+        Updates the positions and states of all dynamic game entities.
 
+        This method dictates the movement logic for Pac-Man and the ghosts
+        per frame. Pac-Man moves based on current directional inputs. Ghost
+        behaviors are determined by the global playing state (e.g., POWER)
+        and their individual current modes (NORMAL, SCARED, EAT).
+
+        During normal play, Blinky actively targets Pac-Man (unless Pac-Man
+        is invincible), while others currently move randomly. If a ghost is
+        eaten, it navigates back to its starting position to respawn and
+        resume its normal hunting state, adjusting speed accordingly.
+        """
         self.pac_man.move(self.map)
 
         if self.playing_state == PlayingState.LEVEL_PASS:
@@ -503,6 +678,18 @@ class GameEngine:
                             ghost.speed = 0
 
     def _eat_pac_gums(self) -> bool:
+        """
+        Checks for and processes the consumption of a standard pac-gum.
+
+        This method calculates Pac-Man's center point in pixel
+        coordinates and converts it to map grid coordinates. If a standard
+        pac-gum exists at this specific grid location, it is removed from
+        the active pac-gums list, indicating it has been eaten.
+
+        Returns:
+            bool: True if a pac-gum was successfully eaten during this
+                frame, False otherwise.
+        """
         cell_size = self.pac_man.cell_size
 
         pac_cx = self.pac_man.pixel_x + cell_size // 2
@@ -519,6 +706,19 @@ class GameEngine:
         return False
 
     def _eat_super_pac_gums(self) -> bool:
+        """
+        Checks for and processes the consumption of a super pac-gum.
+
+        This method calculates Pac-Man's center point in pixel
+        coordinates and converts it to map grid coordinates. If a super
+        pac-gum exists at this specific grid location, it is removed from
+        the active super pac-gums list, indicating it has been eaten and
+        should trigger the game's power-up state.
+
+        Returns:
+            bool: True if a super pac-gum was successfully eaten during
+                this frame, False otherwise.
+        """
         cell_size = self.pac_man.cell_size
 
         pac_cx = self.pac_man.pixel_x + cell_size // 2
@@ -535,12 +735,20 @@ class GameEngine:
         return False
 
     def _draw_score_eating(self) -> None:
+        """
+        Renders the floating score text after a ghost is consumed.
+
+        This method displays the point value of a recently eaten ghost
+        at the exact coordinates where the ghost was caught. The text
+        remains temporarily visible on the screen for exactly one second
+        (1000 milliseconds) after the event before disappearing.
+        """
         current_time = pygame.time.get_ticks()
 
         if current_time < self.time_score_eating + 1000:
             y, x = self.score_eating_coord
 
-            points_str = self.font_basic.render(
+            points_str = self.assets_manager.f_basic.render(
                 str(self.score_eating), True, self.NEON_PINK
             )
             points_h = points_str.get_height()
@@ -551,6 +759,16 @@ class GameEngine:
             self.virtual_screen.blit(points_str, (points_x, points_y))
 
     def _is_pac_man_catch(self) -> None:
+        """
+        Evaluates collisions between Pac-Man and ghosts to update game states.
+
+        This method retrieves the hitboxes for Pac-Man and all active ghosts,
+        checking for any intersections. If a collision occurs, the outcome
+        depends on the ghost's current mode. If the ghost is in a normal
+        hunting state and Pac-Man is vulnerable, it triggers Pac-Man's death
+        sequence. If the ghost is scared, it is eaten, awarding escalating
+        points to the player and sending the ghost back to spawn.
+        """
         if self.playing_state == PlayingState.LEVEL_PASS:
             return
 
@@ -599,6 +817,15 @@ class GameEngine:
                     )
 
     def _load_pause_info(self) -> None:
+        """
+        Saves the current game state and freezes entities during a pause.
+
+        This method calculates and stores the remaining level time, as well
+        as the elapsed time for active temporary states like Pac-Man's
+        invincibility or a power-up phase. It records the current speed
+        of all ghosts before setting their speeds (and Pac-Man's) to zero,
+        effectively halting all on-screen movement.
+        """
         current_time = pygame.time.get_ticks()
 
         self.pause_info["time_left"] = (
@@ -624,13 +851,21 @@ class GameEngine:
         self.pac_man.speed = 0
 
     def _render_starting_level(self) -> None:
+        """
+        Renders the visual countdown sequence before a level begins.
 
+        This method applies a semi-transparent dark overlay to the screen
+        and displays the initial maximum level time. It calculates the
+        elapsed time since the countdown started and displays a descending
+        timer (3, 2, 1) followed by "GO" in the center of the screen,
+        indicating that gameplay is about to commence.
+        """
         blur_surface = pygame.Surface(
             (self.WIDTH, self.HEIGHT), pygame.SRCALPHA
         )
         blur_surface.fill((0, 0, 0, 160))
 
-        time_left_text = self.font_basic.render(
+        time_left_text = self.assets_manager.f_basic.render(
             str(self.config.level_max_time), True, self.NEON_PINK
         )
 
@@ -652,8 +887,12 @@ class GameEngine:
         else:
             text = str(count_down - 1)
 
-        text_1 = self.font_back_countdown.render(text, True, self.GRAY)
-        text_2 = self.font_front_countdown.render(text, True, self.NEON_BLUE)
+        text_1 = self.assets_manager.f_back_countdown.render(
+            text, True, self.GRAY
+        )
+        text_2 = self.assets_manager.f_front_countdown.render(
+            text, True, self.NEON_BLUE
+        )
 
         text_x = (self.WIDTH - text_1.get_width()) // 2
         text_y = (self.HEIGHT - text_1.get_height()) // 2
@@ -662,6 +901,20 @@ class GameEngine:
         self.virtual_screen.blit(text_2, (text_x, text_y))
 
     def _render_paused_game(self, mouse_x: int, mouse_y: int) -> None:
+        """
+        Renders the pause menu overlay and handles its hover interactions.
+
+        This method applies a dark, semi-transparent blur over the active
+        gameplay to indicate the paused state. It draws a central modal
+        window displaying the remaining level time, current score, a toggle
+        for audio volume, and interactive buttons to either "RESUME" the
+        game or "EXIT" back to the main menu. It also updates the interface
+        dictionary with hitbox coordinates for these clickable elements.
+
+        Args:
+            mouse_x (int): The current X coordinate of the virtual mouse.
+            mouse_y (int): The current Y coordinate of the virtual mouse.
+        """
         blur_surface = pygame.Surface(
             (self.WIDTH, self.HEIGHT), pygame.SRCALPHA
         )
@@ -669,7 +922,7 @@ class GameEngine:
 
         time_left = self.pause_info["time_left"]
 
-        time_left_text = self.font_basic.render(
+        time_left_text = self.assets_manager.f_basic.render(
             str(time_left), True, self.NEON_PINK
         )
 
@@ -701,15 +954,17 @@ class GameEngine:
             2,
         )
 
-        text_1 = self.font_back.render("PAUSE", True, self.GRAY)
-        text_2 = self.font_front.render("PAUSE", True, color)
+        text_1 = self.assets_manager.f_back.render("PAUSE", True, self.GRAY)
+        text_2 = self.assets_manager.f_front.render("PAUSE", True, color)
 
         text_x = (width - text_1.get_width()) // 2
 
         paused_surface.blit(text_1, (text_x, 2))
         paused_surface.blit(text_2, (text_x, 2))
 
-        exit_text_1 = self.font_back_game_over.render("EXIT", True, self.GRAY)
+        exit_text_1 = self.assets_manager.f_back_over.render(
+            "EXIT", True, self.GRAY
+        )
 
         exit_text_w, exit_text_h = exit_text_1.get_size()
 
@@ -730,7 +985,7 @@ class GameEngine:
         else:
             self.interface["Exit_paused"][2] = False
 
-        exit_text_2 = self.font_front_game_over.render(
+        exit_text_2 = self.assets_manager.f_front_over.render(
             "EXIT", True, exit_text_front_color
         )
 
@@ -782,8 +1037,12 @@ class GameEngine:
                 1,
             )
 
-        score_text_1 = self.font_basic.render("Score ", True, self.GRAY)
-        score_text_2 = self.font_basic.render(str(self.score), True, color)
+        score_text_1 = self.assets_manager.f_basic.render(
+            "Score ", True, self.GRAY
+        )
+        score_text_2 = self.assets_manager.f_basic.render(
+            str(self.score), True, color
+        )
 
         score_text_w, score_text_h = score_text_1.get_size()
         value_text_w = score_text_2.get_width()
@@ -798,7 +1057,9 @@ class GameEngine:
             score_text_2, (score_text_x + score_text_w, score_text_y)
         )
 
-        resume_text = self.font_basic.render("RESUME", True, self.NEON_PURPLE)
+        resume_text = self.assets_manager.f_basic.render(
+            "RESUME", True, self.NEON_PURPLE
+        )
         resume_w, resume_h = resume_text.get_size()
 
         resume_x, resume_y = (
@@ -811,7 +1072,7 @@ class GameEngine:
         self.interface["resume_paused"] = ((x_min, x_max), (y_min, y_max))
 
         if self._is_hover(mouse_x, mouse_y, x_min, x_max, y_min, y_max):
-            resume_text = self.font_basic.render(
+            resume_text = self.assets_manager.f_basic.render(
                 "RESUME", True, self.NEON_PINK
             )
 
@@ -820,6 +1081,15 @@ class GameEngine:
         self.virtual_screen.blit(paused_surface, (x, y))
 
     def _depause_game(self) -> None:
+        """
+        Restores the game state and entity movements after a pause.
+
+        This method recalculates critical timestamps (level duration,
+        power-up time, and invincibility duration) to account for the time
+        spent in the pause menu. It also restores the movement speeds of
+        all ghosts and Pac-Man, applying any active cheat codes, and
+        resumes background music if a specific state requires it.
+        """
         current_time = pygame.time.get_ticks()
 
         for name, ghost in self.ghosts.items():
@@ -852,6 +1122,18 @@ class GameEngine:
                 self.music_load = True
 
     def _render_pac_man_dying(self) -> bool:
+        """
+        Renders the death animation and manages the respawn sequence.
+
+        This method calculates the current frame of the 12-frame death
+        animation based on the elapsed time since Pac-Man was caught. It
+        draws the appropriately scaled frame to the screen. Once the 1200ms
+        animation finishes, it resets Pac-Man's position and normal speed.
+
+        Returns:
+            bool: True if the animation has completed and Pac-Man is ready
+                to respawn, False if the animation is still ongoing.
+        """
         x, y = self.pac_man.pixel_x, self.pac_man.pixel_y
         cell_size = self.pac_man.cell_size
 
@@ -897,6 +1179,22 @@ class GameEngine:
         surface_pos_y: int,
         input_window_y: int,
     ) -> None:
+        """
+        Renders and manages the username input field.
+
+        This method draws the text input window allowing the player to
+        enter their name after a game ends. It handles cursor animation,
+        validates the input (preventing empty submissions), displays
+        warning or success messages, and triggers the high score save
+        process via HighScoreManager when Enter is pressed. It also
+        updates the interface dictionary with the window's hitbox.
+
+        Args:
+            surface (pygame.Surface): The surface to draw the window on.
+            surface_pos_x (int): The absolute X position of the surface.
+            surface_pos_y (int): The absolute Y position of the surface.
+            input_window_y (int): The relative Y position of the text box.
+        """
         w, h = surface.get_size()
 
         if self.input_done:
@@ -910,7 +1208,7 @@ class GameEngine:
 
             return
 
-        basic_text = self.font_basic.render(
+        basic_text = self.assets_manager.f_basic.render(
             "Enter your name ..", True, self.BLACK
         )
 
@@ -934,7 +1232,9 @@ class GameEngine:
                 else self.pseudo
             )
 
-            text = self.font_basic.render(input_txt, True, self.BLACK)
+            text = self.assets_manager.f_basic.render(
+                input_txt, True, self.BLACK
+            )
             input_window.blit(text, (4, 8))
             color = self.NEON_PINK
 
@@ -944,7 +1244,7 @@ class GameEngine:
                     self.enter_pressed = False
 
                 self.pseudo_valid = True
-                inst_text = self.font_basic_small.render(
+                inst_text = self.assets_manager.f_basic_s.render(
                     "Press enter to valid", True, self.NEON_PINK
                 )
                 inst_text_w = inst_text.get_width()
@@ -965,7 +1265,7 @@ class GameEngine:
 
             else:
                 if self.enter_pressed:
-                    warning_message = self.font_basic_small.render(
+                    warning_message = self.assets_manager.f_basic_s.render(
                         "Username cannot be empty.", True, self.NEON_RED
                     )
                     warning_message_w, warning_message_h = (
@@ -1007,6 +1307,20 @@ class GameEngine:
         )
 
     def _render_game_over(self, mouse_x: int, mouse_y: int) -> None:
+        """
+        Renders the game over screen and manages end-game UI components.
+
+        This method applies a dark, semi-transparent blur over the gameplay
+        area and displays a modal window. It presents the "GAME OVER"
+        announcement, the final score, and an interactive "BACK" button
+        that responds to mouse hover. It also integrates the user input
+        field for high score recording by calling the specialized
+        _render_input_user method.
+
+        Args:
+            mouse_x (int): The current X coordinate of the virtual mouse.
+            mouse_y (int): The current Y coordinate of the virtual mouse.
+        """
         blur_surface = pygame.Surface(
             (self.WIDTH, self.HEIGHT), pygame.SRCALPHA
         )
@@ -1037,8 +1351,10 @@ class GameEngine:
             pygame.Rect(x - 1, y - 1, w + 2, h + 2),
             2,
         )
-        text_1 = self.font_back.render("GAME OVER", True, self.GRAY)
-        text_2 = self.font_front.render("GAME OVER", True, color)
+        text_1 = self.assets_manager.f_back.render(
+            "GAME OVER", True, self.GRAY
+        )
+        text_2 = self.assets_manager.f_front.render("GAME OVER", True, color)
 
         text_x = (w - text_1.get_width()) // 2
         text_h = text_1.get_height()
@@ -1046,7 +1362,9 @@ class GameEngine:
         pop_up_surface.blit(text_1, (text_x, 2))
         pop_up_surface.blit(text_2, (text_x, 2))
 
-        back_text_1 = self.font_back_game_over.render("BACK", True, self.GRAY)
+        back_text_1 = self.assets_manager.f_back_over.render(
+            "BACK", True, self.GRAY
+        )
 
         back_text_w, back_text_h = back_text_1.get_size()
 
@@ -1071,15 +1389,19 @@ class GameEngine:
         else:
             self.interface["Back_game_over"][2] = False
 
-        back_text_2 = self.font_front_game_over.render(
+        back_text_2 = self.assets_manager.f_front_over.render(
             "BACK", True, back_text_front_color
         )
 
         pop_up_surface.blit(back_text_1, (back_text_x, back_text_y))
         pop_up_surface.blit(back_text_2, (back_text_x, back_text_y))
 
-        score_text_1 = self.font_basic.render("Score ", True, self.GRAY)
-        score_text_2 = self.font_basic.render(str(self.score), True, color)
+        score_text_1 = self.assets_manager.f_basic.render(
+            "Score ", True, self.GRAY
+        )
+        score_text_2 = self.assets_manager.f_basic.render(
+            str(self.score), True, color
+        )
 
         score_text_w, score_text_h = score_text_1.get_size()
         value_text_w = score_text_2.get_width()
@@ -1099,6 +1421,17 @@ class GameEngine:
         self.virtual_screen.blit(pop_up_surface, (x, y))
 
     def _render_level_pass(self) -> None:
+        """
+        Handles the transition logic and animation when a level is cleared.
+
+        This method manages two phases of level completion. First, it renders
+        a collectible "key" at Pac-Man's starting position; if Pac-Man
+        collides with this key, the exit animation is triggered. Second, it
+        renders a scaling black rectangle animation that grows to cover the
+        screen. Once the animation timer expires, it either advances the
+        game to the next level's starting state or triggers the final win
+        state if the maximum level (10) has been reached.
+        """
         pygame.mixer.music.stop()
 
         if self.level_pass_animation:
@@ -1157,6 +1490,21 @@ class GameEngine:
                 self.level_pass_animation_time = pygame.time.get_ticks()
 
     def _render_game(self, mouse_x: int, mouse_y: int) -> None:
+        """
+        Orchestrates the main game rendering loop and state management.
+
+        This method serves as the central hub for the game's visual output.
+        It first clears the screen by blitting the map surface, then draws
+        the UI status and static items. Depending on the current GameState
+        (STARTING, PLAYING, PAUSED, or GAME_OVER), it triggers specific
+        rendering logic, manages entity movement, processes collision
+        events (eating gums or being caught), handles timers, and plays
+        the appropriate sound effects for each game phase.
+
+        Args:
+            mouse_x (int): The current X coordinate of the virtual mouse.
+            mouse_y (int): The current Y coordinate of the virtual mouse.
+        """
         self.virtual_screen.blit(self.map_surface, (0, 0))
         self._draw_game_status()
         self._draw_pac_gums()
@@ -1200,7 +1548,7 @@ class GameEngine:
             else:
                 time_left = self.pause_info["time_left"]
 
-                time_left_text = self.font_basic.render(
+                time_left_text = self.assets_manager.f_basic.render(
                     str(time_left), True, self.NEON_PINK
                 )
 
@@ -1296,6 +1644,20 @@ class GameEngine:
             self._is_pac_man_catch()
 
     def _render_win(self, mouse_x: int, mouse_y: int) -> None:
+        """
+        Renders the victory screen when the player completes the game.
+
+        This method displays a celebratory modal window upon game completion.
+        It renders the "YOU WIN" announcement, displays the player's final
+        score, and provides an interactive "BACK" button to return to the
+        main menu. Similar to the game over screen, it also includes the
+        username input field via _render_input_user to allow the player to
+        save their winning score to the high scores list.
+
+        Args:
+            mouse_x (int): The current X coordinate of the virtual mouse.
+            mouse_y (int): The current Y coordinate of the virtual mouse.
+        """
         pop_up_surface = pygame.Surface(
             (int(self.WIDTH / 1.5), self.HEIGHT // 3), pygame.SRCALPHA
         )
@@ -1319,8 +1681,8 @@ class GameEngine:
             pygame.Rect(x - 1, y - 1, w + 2, h + 2),
             2,
         )
-        text_1 = self.font_back.render("YOU WIN", True, self.GRAY)
-        text_2 = self.font_front.render("YOU WIN", True, color)
+        text_1 = self.assets_manager.f_back.render("YOU WIN", True, self.GRAY)
+        text_2 = self.assets_manager.f_front.render("YOU WIN", True, color)
 
         text_x = (w - text_1.get_width()) // 2
         text_h = text_1.get_height()
@@ -1328,7 +1690,9 @@ class GameEngine:
         pop_up_surface.blit(text_1, (text_x, 2))
         pop_up_surface.blit(text_2, (text_x, 2))
 
-        back_text_1 = self.font_back_game_over.render("BACK", True, self.GRAY)
+        back_text_1 = self.assets_manager.f_back_over.render(
+            "BACK", True, self.GRAY
+        )
 
         back_text_w, back_text_h = back_text_1.get_size()
 
@@ -1353,15 +1717,19 @@ class GameEngine:
         else:
             self.interface["Back_game_over"][2] = False
 
-        back_text_2 = self.font_front_game_over.render(
+        back_text_2 = self.assets_manager.f_front_over.render(
             "BACK", True, back_text_front_color
         )
 
         pop_up_surface.blit(back_text_1, (back_text_x, back_text_y))
         pop_up_surface.blit(back_text_2, (back_text_x, back_text_y))
 
-        score_text_1 = self.font_basic.render("Score ", True, self.GRAY)
-        score_text_2 = self.font_basic.render(str(self.score), True, color)
+        score_text_1 = self.assets_manager.f_basic.render(
+            "Score ", True, self.GRAY
+        )
+        score_text_2 = self.assets_manager.f_basic.render(
+            str(self.score), True, color
+        )
 
         score_text_w, score_text_h = score_text_1.get_size()
         value_text_w = score_text_2.get_width()
@@ -1383,6 +1751,22 @@ class GameEngine:
     def _draw_command(
         self, mouse_x: int, mouse_y: int, height_available: int
     ) -> None:
+        """
+        Renders the command instructions section within the info menu.
+
+        This method draws a categorized display of game controls, split
+        into "Basic commands" (movement) and "Cheat commands" (gameplay
+        modifiers). It handles the visual layout, including background
+        rectangles, decorative ghost assets (Blinky and Clyde), and
+        dynamic color changes based on mouse hover state. The section is
+        centered horizontally and partitioned using a vertical separator.
+
+        Args:
+            mouse_x (int): The current X coordinate of the virtual mouse.
+            mouse_y (int): The current Y coordinate of the virtual mouse.
+            height_available (int): Total vertical space allocated for
+                the instructions UI.
+        """
         width, height = (self.WIDTH / 1.2), (height_available - 40) // 3
 
         x, y = (self.WIDTH - width) // 2, (
@@ -1426,17 +1810,17 @@ class GameEngine:
             2,
         )
 
-        basic_instructions_text_1 = self.font_back_game_over.render(
+        basic_instructions_text_1 = self.assets_manager.f_back_over.render(
             "Basic commands", True, self.GRAY
         )
-        basic_instructions_text_2 = self.font_front_game_over.render(
+        basic_instructions_text_2 = self.assets_manager.f_front_over.render(
             "Basic commands", True, color
         )
 
-        cheat_instructions_text_1 = self.font_back_game_over.render(
+        cheat_instructions_text_1 = self.assets_manager.f_back_over.render(
             "Cheat commands", True, self.GRAY
         )
-        cheat_instructions_text_2 = self.font_front_game_over.render(
+        cheat_instructions_text_2 = self.assets_manager.f_front_over.render(
             "Cheat commands", True, color
         )
 
@@ -1455,10 +1839,12 @@ class GameEngine:
         offset_y = 20
 
         commands = {
-            "up": self.font_basic.render("↑  up", True, color),
-            "down": self.font_basic.render("↓  down", True, color),
-            "left": self.font_basic.render("←  left", True, color),
-            "right": self.font_basic.render("→  right", True, color),
+            "up": self.assets_manager.f_basic.render("↑  up", True, color),
+            "down": self.assets_manager.f_basic.render("↓  down", True, color),
+            "left": self.assets_manager.f_basic.render("←  left", True, color),
+            "right": self.assets_manager.f_basic.render(
+                "→  right", True, color
+            ),
         }
 
         command_w, command_h = commands["right"].get_size()
@@ -1472,10 +1858,18 @@ class GameEngine:
             command_y += offset_y + command_h
 
         cheats = {
-            "speed": self.font_basic.render("s:  Speed * 2", True, color),
-            "freeze": self.font_basic.render("f:  Freeze ghosts", True, color),
-            "next": self.font_basic.render("l:  Level skip", True, color),
-            "power": self.font_basic.render("p:  Instant power", True, color),
+            "speed": self.assets_manager.f_basic.render(
+                "s:  Speed * 2", True, color
+            ),
+            "freeze": self.assets_manager.f_basic.render(
+                "f:  Freeze ghosts", True, color
+            ),
+            "next": self.assets_manager.f_basic.render(
+                "l:  Level skip", True, color
+            ),
+            "power": self.assets_manager.f_basic.render(
+                "p:  Instant power", True, color
+            ),
         }
 
         cheat_w, cheat_h = cheats["freeze"].get_size()
@@ -1491,6 +1885,23 @@ class GameEngine:
     def _draw_rules(
         self, mouse_x: int, mouse_y: int, height_available: int
     ) -> None:
+        """
+        Renders the game rules section within the instructions menu.
+
+        This method displays a comprehensive list of game objectives,
+        mechanics, and controls. It draws a stylized text box featuring
+        ghost assets (Inky and Pinky) that react to mouse hover. The
+        rules text is dynamically generated to include current
+        configuration values, such as starting lives and level time
+        limits, ensuring the documentation remains accurate to the
+        game's settings.
+
+        Args:
+            mouse_x (int): The current X coordinate of the virtual mouse.
+            mouse_y (int): The current Y coordinate of the virtual mouse.
+            height_available (int): The total vertical space allocated for
+                the instructions interface.
+        """
         width, height = int(self.WIDTH / 1.2), height_available // 2 + 20
 
         x, y = (self.WIDTH - width) // 2, (
@@ -1528,10 +1939,12 @@ class GameEngine:
             1,
         )
 
-        title_text_1 = self.font_back_game_over.render(
+        title_text_1 = self.assets_manager.f_back_over.render(
             "Rules", True, self.GRAY
         )
-        title_text_2 = self.font_front_game_over.render("Rules", True, color)
+        title_text_2 = self.assets_manager.f_front_over.render(
+            "Rules", True, color
+        )
 
         title_w, title_h = title_text_1.get_size()
         title_x, title_y = (self.WIDTH - title_w) // 2, y + 10
@@ -1553,7 +1966,7 @@ class GameEngine:
             "- Pause: Press space to pause or resume at \n  any time."
         )
 
-        text_rules = self.font_basic.render(rules, True, color)
+        text_rules = self.assets_manager.f_basic.render(rules, True, color)
 
         text_rules_w = text_rules.get_width()
         text_rules_x, text_rules_y = (
@@ -1563,9 +1976,25 @@ class GameEngine:
 
         self.virtual_screen.blit(text_rules, (text_rules_x, text_rules_y))
 
-    def _draw_command_instructions(self, mouse_x: int, mouse_y: int) -> None:
-        title_text_1 = self.font_back.render("Instructions", True, self.GRAY)
-        title_text_2 = self.font_front.render(
+    def _render_instructions(self, mouse_x: int, mouse_y: int) -> None:
+        """
+        Renders the main instructions screen and its sub-components.
+
+        This method displays the overall "Instructions" menu, featuring a
+        title and a "Back" button to return to the main menu. It manages
+        the layout by calculating the available vertical space and
+        delegating the rendering of specific sections to _draw_command
+        and _draw_rules. It also handles mouse hover states for the navigation
+        button and updates its hitbox coordinates in the interface mapping.
+
+        Args:
+            mouse_x (int): The current X coordinate of the virtual mouse.
+            mouse_y (int): The current Y coordinate of the virtual mouse.
+        """
+        title_text_1 = self.assets_manager.f_back.render(
+            "Instructions", True, self.GRAY
+        )
+        title_text_2 = self.assets_manager.f_front.render(
             "Instructions", True, self.NEON_PINK
         )
 
@@ -1574,8 +2003,10 @@ class GameEngine:
         self.virtual_screen.blit(title_text_1, coord)
         self.virtual_screen.blit(title_text_2, coord)
 
-        back_text_1 = self.font_back_game_over.render("Back", True, self.GRAY)
-        back_text_2 = self.font_front_game_over.render(
+        back_text_1 = self.assets_manager.f_back_over.render(
+            "Back", True, self.GRAY
+        )
+        back_text_2 = self.assets_manager.f_front_over.render(
             "Back", True, self.NEON_PURPLE
         )
         text_width, text_height = back_text_1.get_size()
@@ -1600,7 +2031,7 @@ class GameEngine:
         y_min, y_max = coord[1], coord[1] + text_height
 
         if self._is_hover(mouse_x, mouse_y, x_min, x_max, y_min, y_max):
-            back_text_2 = self.font_front_game_over.render(
+            back_text_2 = self.assets_manager.f_front_over.render(
                 "Back", True, self.NEON_PINK
             )
             if not self.interface["Back_instructions"][2]:
@@ -1622,12 +2053,11 @@ class GameEngine:
         self._draw_command(mouse_x, mouse_y, height_available)
         self._draw_rules(mouse_x, mouse_y, height_available)
 
-    def _render_instructions(self, mouse_x: int, mouse_y: int) -> None:
-        self._draw_command_instructions(mouse_x, mouse_y)
-
     def _render_highscores(self, mouse_x: int, mouse_y: int) -> None:
-        title_text_1 = self.font_back.render("Highscores", True, self.GRAY)
-        title_text_2 = self.font_front.render(
+        title_text_1 = self.assets_manager.f_back.render(
+            "Highscores", True, self.GRAY
+        )
+        title_text_2 = self.assets_manager.f_front.render(
             "Highscores", True, self.NEON_PINK
         )
 
@@ -1636,7 +2066,7 @@ class GameEngine:
         self.virtual_screen.blit(title_text_1, coord)
         self.virtual_screen.blit(title_text_2, coord)
 
-        text = self.font_basic.render(
+        text = self.assets_manager.f_basic.render(
             "Available soon ...", True, self.NEON_PURPLE
         )
         self.virtual_screen.blit(
@@ -1647,8 +2077,10 @@ class GameEngine:
             ),
         )
 
-        back_text_1 = self.font_back_game_over.render("Back", True, self.GRAY)
-        back_text_2 = self.font_front_game_over.render(
+        back_text_1 = self.assets_manager.f_back_over.render(
+            "Back", True, self.GRAY
+        )
+        back_text_2 = self.assets_manager.f_front_over.render(
             "Back", True, self.NEON_PURPLE
         )
         text_width, text_height = back_text_1.get_size()
@@ -1673,7 +2105,7 @@ class GameEngine:
         y_min, y_max = coord[1], coord[1] + text_height
 
         if self._is_hover(mouse_x, mouse_y, x_min, x_max, y_min, y_max):
-            back_text_2 = self.font_front_game_over.render(
+            back_text_2 = self.assets_manager.f_front_over.render(
                 "Back", True, self.NEON_PINK
             )
             if not self.interface["Back_highscores"][2]:
@@ -1689,6 +2121,24 @@ class GameEngine:
         self.virtual_screen.blit(back_text_2, coord)
 
     def _draw_home_text(self, mouse_x: int, mouse_y: int) -> int:
+        """
+        Renders the home screen menu options and the game title.
+
+        This method displays the main title image and iterates through the
+        available menu text options (e.g., Start, Exit). It handles the
+        visual hover effects, updates the interface dictionary with text
+        hitboxes for click detection, and triggers sound effects when the
+        mouse enters a menu item's area. Additionally, it renders the
+        volume toggle icon and its interactive border.
+
+        Args:
+            mouse_x (int): The current X coordinate of the virtual mouse.
+            mouse_y (int): The current Y coordinate of the virtual mouse.
+
+        Returns:
+            int: The height of the title image, used to calculate offsets
+                for other home screen elements.
+        """
         title_img = self.assets_manager.img["title"]
 
         w, h = title_img.get_size()
@@ -1701,8 +2151,10 @@ class GameEngine:
         for key in self.interface["text"].keys():
             coord = (40, h + 120 + offset_y)
 
-            text_1 = self.font_back.render(key, True, self.GRAY)
-            text_2 = self.font_front.render(key, True, self.PACMAN_YELLOW)
+            text_1 = self.assets_manager.f_back.render(key, True, self.GRAY)
+            text_2 = self.assets_manager.f_front.render(
+                key, True, self.PACMAN_YELLOW
+            )
 
             text_width, text_height = (
                 text_1.get_width(),
@@ -1718,7 +2170,9 @@ class GameEngine:
             y_min, y_max = coord[1], coord[1] + text_height
 
             if self._is_hover(mouse_x, mouse_y, x_min, x_max, y_min, y_max):
-                text_1 = self.font_back.render(key, True, self.NEON_BLUE)
+                text_1 = self.assets_manager.f_back.render(
+                    key, True, self.NEON_BLUE
+                )
                 if key == "Exit" and not self.interface["text"][key][2]:
                     self.assets_manager.play_sound(
                         None, self.assets_manager.sound["munch_2"], False, 0.5
@@ -1784,6 +2238,23 @@ class GameEngine:
         return int(h)
 
     def _draw_home_animation(self, h: int) -> None:
+        """
+        Renders the looping cinematic animation on the home screen.
+
+        This method manages a two-phase animation cycle:
+        1. Ghosts chasing Pac-Man across the screen.
+        2. Pac-Man chasing "scared" ghosts in the opposite direction.
+
+        It calculates sprite positions, handles frame-based animations for
+        character mouth movements and ghost textures, and manages the scaling
+        of assets. When a character group exits the screen boundaries, the
+        method resets their position and toggles the animation phase via
+        internal counters.
+
+        Args:
+            h (int): The base vertical coordinate (usually the title height)
+                used to anchor the animation on the Y-axis.
+        """
         offset_x = 0
 
         if not self.interface["counter"] % 2:
@@ -1846,10 +2317,39 @@ class GameEngine:
                 self.interface["pos_x"] = -self.interface["start_x"]
 
     def _render_home(self, mouse_x: int, mouse_y: int) -> None:
+        """
+        Orchestrates the rendering of the game's main menu screen.
+
+        This method serves as the primary assembly point for the home screen
+        UI. it first triggers the rendering of interactive menu text and
+        the title, retrieving the calculated title height. This height is
+        then passed to the animation logic to ensure the decorative
+        background cinematic is correctly positioned relative to the
+        branding. It continuously updates based on the virtual mouse
+        coordinates for menu interactivity.
+
+        Args:
+            mouse_x (int): The current X coordinate of the virtual mouse.
+            mouse_y (int): The current Y coordinate of the virtual mouse.
+        """
         h = self._draw_home_text(mouse_x, mouse_y)
         self._draw_home_animation(h)
 
     def _render(self, mouse_x: int, mouse_y: int) -> None:
+        """
+        The top-level rendering engine for the application.
+
+        This method acts as the primary display controller, responsible for
+        clearing the virtual screen and delegating drawing tasks based on
+        the current global GameState. It ensures that only the relevant
+        interface (Menu, Instructions, High Scores, Victory screen, or
+        Active Gameplay) is processed and rendered for the current frame,
+        passing mouse coordinates down to facilitate UI interaction.
+
+        Args:
+            mouse_x (int): The current X coordinate of the virtual mouse.
+            mouse_y (int): The current Y coordinate of the virtual mouse.
+        """
         self.virtual_screen.fill(self.BLACK)
 
         if self.state == GameState.MENU:
@@ -1866,6 +2366,25 @@ class GameEngine:
     def _manage_events(
         self, events: List[Event], mouse_x: int, mouse_y: int
     ) -> bool:
+        """
+        Processes all user inputs and updates game states accordingly.
+
+        This central event handler interprets keyboard and mouse events
+        based on the current GameState. In MENU or INFO states, it manages
+        button clicks and navigation. During PLAYING, it translates key
+        presses into Pac-Man movement or cheat activations. For GAME_OVER
+        or WIN states, it facilitates text input for high scores. It also
+        handles audio toggles, transition timers for level starts, and
+        graceful application exits.
+
+        Args:
+            events (List[Event]): A list of pygame events to process.
+            mouse_x (int): The current X coordinate of the virtual mouse.
+            mouse_y (int): The current Y coordinate of the virtual mouse.
+
+        Returns:
+            bool: False if the game should quit, True otherwise.
+        """
         for event in events:
             if event.type == pygame.QUIT:
                 return False
@@ -2135,6 +2654,16 @@ class GameEngine:
         return True
 
     def run(self) -> None:
+        """
+        Executes the main application loop and handles high-level setup.
+
+        This method initializes the Pygame environment, sets up the display
+        surfaces (both real and virtual for resolution independence), and
+        starts the game's core execution loop. It maintains a consistent
+        framerate of 60 FPS, coordinates the scaling of the virtual screen
+        to the physical window, and continuously cycles through event
+        handling, state updates, and rendering until the user exits.
+        """
         os.environ["SDL_VIDEO_CENTERED"] = "1"
 
         print("CHEMIN DE PYGAME :", pygame.__file__)

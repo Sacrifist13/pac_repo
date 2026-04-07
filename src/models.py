@@ -3,6 +3,15 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class GameConfig(BaseModel):
+    """
+    Data model representing the game's configuration settings.
+
+    This class uses Pydantic to define and validate global settings such as
+    scoring values, player lives, level time limits, and external file paths.
+    It acts as a single source of truth for game balancing and persistent
+    data storage locations.
+    """
+
     highscore_filename: str = Field(
         default="highscores.json",
         description="High Score file name",
@@ -19,6 +28,21 @@ class GameConfig(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def check_config(cls, data: Any) -> Any:
+        """
+        Validates and sanitizes raw configuration data before model creation.
+
+        This validator ensures that all input values from the JSON file meet
+        specific game requirements (e.g., positive integers, correct file
+        extensions). If a value is invalid or missing, it logs a formatted
+        error message to the console and "clamps" the field to its default
+        hardcoded value to ensure the game remains stable and playable.
+
+        Args:
+            data (Any): The raw dictionary parsed from the config file.
+
+        Returns:
+            Any: The sanitized dictionary with corrected values.
+        """
         RED = "\033[91m"
         YELLOW = "\033[93m"
         BOLD = "\033[1m"

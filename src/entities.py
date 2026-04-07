@@ -7,6 +7,16 @@ from .enums_class import Directions, PlayingState, Mode
 
 
 class Entity(ABC):
+    """
+    Abstract base class representing a generic game character.
+
+    This class serves as the foundation for both Pac-Man and the ghosts.
+    It manages spatial properties in both grid and pixel coordinates,
+    handles movement logic, speed settings, and directional states.
+    It also provides utility logic for environment collision detection
+    against the game map.
+    """
+
     def __init__(
         self,
         name: str,
@@ -16,6 +26,17 @@ class Entity(ABC):
         cell_size: int,
         img: Dict[str, pygame.Surface],
     ) -> None:
+        """
+        Initializes the entity with its base attributes and coordinates.
+
+        Args:
+            name (str): The identifier for the entity.
+            grid_x (int): Starting horizontal position in the grid.
+            grid_y (int): Starting vertical position in the grid.
+            speed (int): Movement speed in pixels per frame.
+            cell_size (int): Size of a single maze cell in pixels.
+            img (Dict[str, pygame.Surface]): Dictionary of entity sprites.
+        """
         self.name = name
 
         self.mode = Mode.NORMAL
@@ -48,6 +69,21 @@ class Entity(ABC):
         grid_y: int,
         direction: Directions,
     ) -> bool:
+        """
+        Checks if a wall exists at a grid location in a specific direction.
+
+        This method uses bitwise operations to interpret the wall data
+        stored in the map cells (1: Up, 2: Right, 4: Down, 8: Left).
+
+        Args:
+            map (List[List[List[int]]]): The 3D grid representing the maze.
+            grid_x (int): The horizontal grid coordinate to check.
+            grid_y (int): The vertical grid coordinate to check.
+            direction (Directions): The direction to inspect for a wall.
+
+        Returns:
+            bool: True if there is a wall in that direction, False otherwise.
+        """
         cell = map[grid_y][grid_x][0]
 
         if direction == Directions.UP:
@@ -68,10 +104,28 @@ class Entity(ABC):
         offset_y: int,
         playing_state: PlayingState,
     ) -> None:
+        """
+        Abstract method to render the entity onto a surface.
+
+        Args:
+            surface (pygame.Surface): The target surface for rendering.
+            offset_x (int): The horizontal screen offset.
+            offset_y (int): The vertical screen offset.
+            playing_state (PlayingState): The current gameplay sub-state.
+        """
         pass
 
 
 class Ghost(Entity, ABC):
+    """
+    Abstract base class for all Ghost entities.
+
+    Extends the basic Entity with AI capabilities, including pathfinding
+    logic (A* algorithm) and state-dependent behaviors. Ghosts can
+    navigate randomly, hunt Pac-Man, or return to their spawn point when
+    eaten.
+    """
+
     def __init__(
         self,
         name: str,
@@ -83,6 +137,14 @@ class Ghost(Entity, ABC):
         scared_img: List[pygame.Surface],
         eaten_img: Dict[str, pygame.Surface],
     ) -> None:
+        """
+        Initializes the Ghost with standard and state-specific assets.
+
+        Args:
+            scared_img (List[pygame.Surface]): Sprites used when vulnerable.
+            eaten_img (Dict[str, pygame.Surface]): Sprites for 'eyes only'
+            mode.
+        """
         super().__init__(name, grid_x, grid_y, speed, cell_size, img)
         self.scared_img = scared_img
         self.eaten_img = eaten_img
@@ -91,6 +153,12 @@ class Ghost(Entity, ABC):
     def _calculate_f(
         self, target_grid_x: int, target_grid_y: int, x: int, y: int, g: int
     ) -> int:
+        """
+        Calculates the A* total cost function (f = g + h).
+
+        Uses Manhattan distance as the heuristic (h) for the distance to
+        the target, added to the cost to reach the current node (g).
+        """
         h = abs(target_grid_x - x) + abs(target_grid_y - y)
 
         return h + g
@@ -101,7 +169,17 @@ class Ghost(Entity, ABC):
         target_grid_x: int,
         target_grid_y: int,
     ) -> Any:
+        """
+        Computes the shortest path to a target using the A* algorithm.
 
+        Args:
+            target_grid_x (int): Target X grid coordinate.
+            target_grid_y (int): Target Y grid coordinate.
+
+        Returns:
+            List[Tuple[int, int]]: A list of grid coordinates forming
+                the path in reverse order.
+        """
         f_init = self._calculate_f(
             target_grid_x, target_grid_y, self.grid_x, self.grid_y, 0
         )
@@ -148,6 +226,15 @@ class Ghost(Entity, ABC):
         return []
 
     def move_to_start_pos(self, map: List[List[List[int]]]) -> bool:
+        """
+        Guides the ghost back to its starting position along the fastest path.
+
+        Used primarily when the ghost is in 'EAT' mode. It recalculates the
+        path upon first call and moves the entity frame by frame.
+
+        Returns:
+            bool: True if the starting position has been reached.
+        """
         if self.path_to_start is None:
             self.path_to_start = self._find_fastest_way_to(
                 map, self.starting_x, self.starting_y
@@ -205,6 +292,12 @@ class Ghost(Entity, ABC):
         return False
 
     def move_random(self, map: List[List[List[int]]]) -> None:
+        """
+        Moves the ghost randomly through the maze while avoiding reversals.
+
+        The ghost will pick a new direction at each intersection, excluding
+        the direction it just came from unless it hits a dead end.
+        """
         if self.speed == 0:
             return
 
@@ -295,7 +388,12 @@ class Ghost(Entity, ABC):
         offset_y: int,
         playing_state: PlayingState,
     ) -> None:
+        """
+        Renders the ghost based on its current mode and movement direction.
 
+        Handles visual transitions for NORMAL, SCARED, and EAT modes,
+        including flashing animations during power-up phases.
+        """
         directions_str = ["up", "down", "right", "left"]
 
         if self.mode == Mode.EAT:
@@ -355,6 +453,16 @@ class Ghost(Entity, ABC):
 
 
 class Blinky(Ghost):
+    """
+    Implementation of the red ghost, Blinky.
+
+    Blinky is characterized by a direct pursuit AI. Unlike other ghosts
+    that may move randomly or target offset positions, Blinky
+    constantly calculates the shortest path to Pac-Man's current grid
+    location using the A* pathfinding algorithm, making him the most
+    aggressive chaser in the game.
+    """
+
     def __init__(
         self,
         name: str,
@@ -366,6 +474,9 @@ class Blinky(Ghost):
         scared_img: List[pygame.Surface],
         eaten_img: Dict[str, pygame.Surface],
     ) -> None:
+        """
+        Initializes Blinky with pursuit-specific tracking attributes.
+        """
         super().__init__(
             name, grid_x, grid_y, speed, cell_size, img, scared_img, eaten_img
         )
@@ -374,6 +485,15 @@ class Blinky(Ghost):
     def move(
         self, map: List[List[List[int]]], pac_grid_x: int, pac_grid_y: int
     ) -> None:
+        """
+        Calculates and executes Blinky's aggressive pursuit logic.
+
+        This method updates Blinky's path to target Pac-Man's exact grid
+        coordinates. It uses the inherited A* search to find the
+        immediate next cell in the optimal path and handles the
+        per-frame pixel movement and coordinate updates required to
+        reach that target.
+        """
         if self.path_to_pac_man is None:
             self.path_to_pac_man = self._find_fastest_way_to(
                 map, pac_grid_x, pac_grid_y
@@ -482,6 +602,15 @@ class Pinky(Ghost):
 
 
 class PacMan(Entity):
+    """
+    Implementation of the player-controlled character, Pac-Man.
+
+    This class handles Pac-Man's unique movement logic, including
+    directional buffering (next_direction), sprite rotation based on
+    heading, and animation states. It also manages specific player modes
+    such as invincibility following a respawn.
+    """
+
     def __init__(
         self,
         name: str,
@@ -491,6 +620,9 @@ class PacMan(Entity):
         cell_size: int,
         img: Dict[str, pygame.Surface],
     ) -> None:
+        """
+        Initializes Pac-Man with movement assets and rotation mapping.
+        """
         super().__init__(name, grid_x, grid_y, speed, cell_size, img)
         self.dying_time: int = 0
 
@@ -502,9 +634,22 @@ class PacMan(Entity):
         }
 
     def set_direction(self, direction: Directions) -> None:
+        """
+        Buffers the next intended direction for the character.
+
+        This allows the player to "pre-turn" before reaching an
+        intersection, improving responsiveness in tight corners.
+        """
         self.next_direction = direction
 
     def reset_pos(self) -> None:
+        """
+        Teleports Pac-Man back to his initial starting coordinates.
+
+        Used after losing a life or finishing a death animation. This
+        resets both grid and pixel coordinates and clears current
+        movement directions.
+        """
         self.grid_x = self.starting_x
         self.grid_y = self.starting_y
 
@@ -517,6 +662,14 @@ class PacMan(Entity):
         self.direction = None
 
     def move(self, map: List[List[List[int]]]) -> None:
+        """
+        Updates Pac-Man's position based on input and wall collisions.
+
+        The method prioritizes the 'next_direction' (buffered input)
+        if the path is clear; otherwise, it continues in the current
+        'direction'. If both paths are blocked by walls, movement stops.
+        It handles smooth pixel interpolation between grid cells.
+        """
         if self.speed == 0:
             return
 
@@ -573,7 +726,14 @@ class PacMan(Entity):
         offset_y: int,
         playing_state: PlayingState,
     ) -> None:
+        """
+        Renders Pac-Man's sprite with appropriate rotation and animation.
 
+        This method selects the correct animation frame based on pixel
+        travel, applies a rotation transform to match the current
+        heading, and handles visual blinking effects when Pac-Man is
+        in INVINCIBLE mode.
+        """
         current_img: pygame.Surface | pygame.surface.Surface = self.img[
             "pac_2"
         ]

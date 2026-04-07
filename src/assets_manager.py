@@ -4,7 +4,20 @@ from typing import Dict, Any
 
 
 class AssetsManager:
+    """
+    Central controller for loading, storing, and managing game resources.
+
+    This class handles the discovery and initialization of all external
+    multimedia assets, including images (PNG, JPEG), sound effects (WAV),
+    and custom fonts. It maintains specialized dictionaries for raw and
+    scaled game assets and provides a unified interface for playing audio
+    tracks and sound effects with volume control.
+    """
+
     def __init__(self) -> None:
+        """
+        Initializes the asset containers and default audio state.
+        """
         self.img: Dict[str, pygame.Surface | pygame.surface.Surface] = {}
         self.sound: Dict[str, Any] = {}
         self.game_img: Dict[str, Any] = {}
@@ -15,6 +28,16 @@ class AssetsManager:
     def play_sound(
         self, media: str | None, sound: Any, loop: bool, volume: float
     ) -> None:
+        """
+        Plays a music file or a sound effect based on availability.
+
+        Args:
+            media (str | None): Path to a music file. If provided, used with
+                pygame.mixer.music.
+            sound (Any): A pygame.mixer.Sound object. Used if media is None.
+            loop (bool): Whether to loop the music indefinitely.
+            volume (float): Audio volume level (clamped between 0.1 and 1.0).
+        """
         if not self.music_on:
             self.music_load = False
             return
@@ -36,6 +59,13 @@ class AssetsManager:
             sound.play()
 
     def init_game(self) -> None:
+        """
+        Scans the assets directory to load images, sounds, and fonts.
+
+        Automatically populates the internal dictionaries by recursively
+        searching for supported file formats. It also initializes the
+        various font objects used for menus, gameplay HUD, and countdowns.
+        """
         assets_dir = Path("assets")
 
         for img in assets_dir.rglob("*.png"):
@@ -72,6 +102,17 @@ class AssetsManager:
         self.f_basic_s = pygame.font.Font("assets/font/basic.ttf", 11)
 
     def load_game_img(self, cell_size: int) -> None:
+        """
+        Scales raw image assets to fit the specific game grid dimensions.
+
+        This method processes the previously loaded raw images to create
+        game-ready versions of Pac-Man, ghosts (in all states), gums,
+        and level keys. Scaling is based on the provided cell_size to
+        ensure visual consistency across different display resolutions.
+
+        Args:
+            cell_size (int): The pixel size of a single map cell.
+        """
         self.game_img["pac_man"] = {
             key: pygame.transform.scale(
                 img,
