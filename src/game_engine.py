@@ -899,6 +899,17 @@ class GameEngine:
     ) -> None:
         w, h = surface.get_size()
 
+        if self.input_done:
+            save_text = self.assets_manager.f_basic.render(
+                "Input save successfully !", True, self.NEON_GREEN
+            )
+            text_w, text_h = save_text.get_size()
+            text_x, text_y = (w - text_w) // 2, (h - text_h) // 2
+
+            surface.blit(save_text, (text_x, text_y + 20))
+
+            return
+
         basic_text = self.font_basic.render(
             "Enter your name ..", True, self.BLACK
         )
@@ -950,7 +961,7 @@ class GameEngine:
                         name=self.pseudo,
                         score=self.score,
                     )
-                    self.state = GameState.MENU
+                    self.input_done = True
 
             else:
                 if self.enter_pressed:
@@ -1180,11 +1191,25 @@ class GameEngine:
                 self._render_level_pass()
                 return
 
-            if not self._draw_time_left():
-                self.state = GameState.GAME_OVER
-                pygame.mixer.music.stop()
-                self.music_load = False
-                return
+            if not self.freeze_cheat:
+                if not self._draw_time_left():
+                    self.state = GameState.GAME_OVER
+                    pygame.mixer.music.stop()
+                    self.music_load = False
+                    return
+            else:
+                time_left = self.pause_info["time_left"]
+
+                time_left_text = self.font_basic.render(
+                    str(time_left), True, self.NEON_PINK
+                )
+
+                time_left_w, time_left_h = time_left_text.get_size()
+                time_x, time_y = (
+                    self.WIDTH - time_left_w
+                ) // 2, self.HEIGHT - time_left_h - 20
+
+                self.virtual_screen.blit(time_left_text, (time_x, time_y))
 
             if self.playing_state == PlayingState.DEATH:
                 if not self.music_load:
@@ -1865,13 +1890,15 @@ class GameEngine:
                                     self.playing_state = PlayingState.RETREATE
                                     self.current_level = 1
                                     self.score = 0
-                                    self.lives = self.config.lives
+                                    # self.lives = self.config.lives
+                                    self.lives = 1
                                     self.pseudo = ""
                                     self.countdown_play = False
                                     self._generate_map()
                                     self.home_page_sound_play = False
                                     self.speed_cheat = False
                                     self.freeze_cheat = False
+                                    self.input_done = False
 
                                 elif key == "View Highscores":
                                     self.state = GameState.SCORE
@@ -1940,6 +1967,18 @@ class GameEngine:
                             for ghost in self.ghosts.values():
                                 if ghost.mode != Mode.EAT:
                                     ghost.speed = 0
+                            self.pause_info["time_left"] = (
+                                self.config.level_max_time
+                                - (
+                                    (
+                                        pygame.time.get_ticks()
+                                        - self.level_starting_time
+                                    )
+                                    // 1000
+                                )
+                                - 1
+                            )
+
                         else:
                             self.freeze_cheat = False
                             for ghost in self.ghosts.values():
@@ -1947,6 +1986,14 @@ class GameEngine:
                                     ghost.speed = 1
                                 else:
                                     ghost.speed = 2
+                            self.level_starting_time = (
+                                pygame.time.get_ticks()
+                                - (
+                                    self.config.level_max_time
+                                    - self.pause_info["time_left"]
+                                )
+                                * 1000
+                            ) + 1000
 
             elif self.state == GameState.PAUSED:
                 if event.type == pygame.MOUSEBUTTONDOWN:
@@ -2048,14 +2095,14 @@ class GameEngine:
                             y_max_input,
                         ):
                             self.in_typing = True
-                elif event.type == pygame.KEYDOWN:
+                elif event.type == pygame.KEYDOWN and not self.input_done:
                     if event.key == pygame.K_RETURN:
                         self.enter_pressed = True
                     elif event.key == pygame.K_BACKSPACE:
                         if self.pseudo:
                             self.pseudo = self.pseudo[:-1]
-                    else:
-                        if len(self.pseudo) < 12:
+                    elif event.unicode == " " or str(event.unicode).isalnum():
+                        if len(self.pseudo) < 10:
                             self.pseudo += event.unicode
 
             elif self.state == GameState.INFO:
