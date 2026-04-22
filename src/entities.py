@@ -4,7 +4,6 @@ import heapq
 from typing import Dict, List, Tuple, Any
 from abc import ABC, abstractmethod
 from .enums_class import Directions, PlayingState, Mode
-import numpy as np
 
 
 class Entity(ABC):
