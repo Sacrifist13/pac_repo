@@ -321,8 +321,8 @@ class GameEngine:
         ) // 2
 
         ghosts = {
-            Blinky: ("blinky", 0, 0),
-            Clyde: ("clyde", 0, map_cols - 1),
+            Blinky: ("blinky", 0, map_cols - 1),
+            Clyde: ("clyde", 0, 0),
             Inky: ("inky", map_rows - 1, 0),
             Pinky: ("pinky", map_rows - 1, map_cols - 1),
         }

@@ -32,3 +32,5 @@ class HighScoreManager:
 
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(highscores_report, f, indent=4)
+
+class Highscore:
