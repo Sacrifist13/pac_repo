@@ -9,6 +9,7 @@ from .highscores import HighScoreManager
 from .map_generator import MapGenerator
 from .enums_class import GameState, Directions, PlayingState, Mode
 from .entities import PacMan, Ghost, Blinky, Clyde, Inky, Pinky
+from .highscores import HighScoreManager
 
 
 class GameEngine:
@@ -2089,17 +2090,13 @@ class GameEngine:
         self.virtual_screen.blit(title_text_1, coord)
         self.virtual_screen.blit(title_text_2, coord)
 
-        text = self.assets_manager.f_basic.render(
-            "Available soon ...", True, self.NEON_PURPLE
-        )
-        self.virtual_screen.blit(
-            text,
-            (
-                (self.WIDTH - text.get_width()) // 2,
-                (self.HEIGHT - text.get_height()) // 2,
-            ),
-        )
-
+        x_start = self.WIDTH // 2
+        y_start = self.WIDTH // 2
+        HighScoreManager.display_score(self.config.highscore_filename,
+                                       self.virtual_screen,
+                                       x_start,
+                                       y_start,
+                                       self.assets_manager)
         back_text_1 = self.assets_manager.f_back_over.render(
             "Back", True, self.GRAY
         )
