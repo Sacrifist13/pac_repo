@@ -5,8 +5,20 @@ from .assets_manager import AssetsManager
 
 
 class HighScoreManager:
+    """Manages highscore persistence and display for a pygame game."""
     @classmethod
     def update_highscores_file(cls, file: str, name: str, score: int) -> None:
+        """
+        Update the highscores JSON file with a new player score.
+
+        Creates the file if it doesn't exist, otherwise updates it by adding
+        the new score, filtering invalid entries, and keeping only the top 10.
+
+        :param file: Path to the JSON highscores file.
+        :param name: Player's name.
+        :param score: Player's score to record.
+        """
+
         file_path = Path(file)
 
         if not file_path.exists():
@@ -42,6 +54,18 @@ class HighScoreManager:
                       x_pos,
                       y_pos,
                       asset_font: AssetsManager) -> None:
+        """
+        Render the highscores leaderboard on a pygame surface.
+
+        Reads scores from the JSON file and displays each entry with the
+        player name in pink and the score in red (< 30) or green (>= 30).
+
+        :param file: Path to the JSON highscores file.
+        :param screen: Pygame surface to draw on.
+        :param x_pos: Horizontal center position for the leaderboard.
+        :param y_pos: Vertical start position for the first entry.
+        :param asset_font: AssetsManager instance providing the font.
+        """
         file_path = Path(file)
         display_score = {}
         try:

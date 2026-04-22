@@ -1,7 +1,7 @@
 import pygame
 import random
 import heapq
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Optional
 from abc import ABC, abstractmethod
 from .enums_class import Directions, PlayingState, Mode
 
@@ -56,8 +56,8 @@ class Entity(ABC):
         self.img = img
 
         self.speed = speed
-        self.direction: Directions | None = None
-        self.next_direction: Directions | None = None
+        self.direction: Optional[Directions] = None
+        self.next_direction: Optional[Directions] = None
 
         self.moving = False
         self.j = 0
@@ -148,7 +148,7 @@ class Ghost(Entity, ABC):
         super().__init__(name, grid_x, grid_y, speed, cell_size, img)
         self.scared_img = scared_img
         self.eaten_img = eaten_img
-        self.path_to_start: List[Tuple[int, int]] | None = None
+        self.path_to_start: Optional[List[Tuple[int, int]]] = None
 
     def _calculate_f(
         self, target_grid_x: int, target_grid_y: int, x: int, y: int, g: int
@@ -480,7 +480,7 @@ class Blinky(Ghost):
         super().__init__(
             name, grid_x, grid_y, speed, cell_size, img, scared_img, eaten_img
         )
-        self.path_to_pac_man: List[Tuple[int, int]] | None = None
+        self.path_to_pac_man: Optional[List[Tuple[int, int]]] = None
 
     def move(
         self, map: List[List[List[int]]], pac_grid_x: int, pac_grid_y: int
@@ -558,6 +558,10 @@ class Clyde(Ghost):
 
 
 class Inky(Ghost):
+    """
+    Inky ghost — uses Blinky's position and Pac-Man's direction
+    to compute a flanking target ahead of Pac-Man.
+    """
     def __init__(
         self,
         name: str,
@@ -569,10 +573,22 @@ class Inky(Ghost):
         scared_img: List[pygame.Surface],
         eaten_img: Dict[str, pygame.Surface],
     ) -> None:
+        """
+        Initialize Inky with position, speed, cell size and sprite images.
+
+        :param name: Ghost identifier name.
+        :param grid_x: Initial column position on the grid.
+        :param grid_y: Initial row position on the grid.
+        :param speed: Movement speed in pixels per frame.
+        :param cell_size: Size of one grid cell in pixels.
+        :param img: Directional sprites keyed by direction name.
+        :param scared_img: Sprite frames for scared state.
+        :param eaten_img: Directional sprites for eaten state.
+        """
         super().__init__(
             name, grid_x, grid_y, speed, cell_size, img, scared_img, eaten_img
         )
-        self.path_to_pac_man: List[Tuple[int, int]] | None = None
+        self.path_to_pac_man: Optional[List[Tuple[int, int]]] = None
 
     def move(
         self, map: List[List[List[int]]],
@@ -582,6 +598,20 @@ class Inky(Ghost):
         blinky_pos_x: int,
         blinky_pos_y: int,
     ) -> None:
+        """
+        Move Inky toward a flanking target derived from Blinky and Pac-Man.
+
+        Computes a reference point 2 cells ahead of Pac-Man, then doubles
+        the vector from Blinky to that point to obtain Inky's target.
+        Pathfinds to the target, then advances one step per call.
+
+        :param map: 2D grid representing the game map.
+        :param pacman_dir: Current movement direction of Pac-Man.
+        :param pac_grid_x: Pac-Man's current column on the grid.
+        :param pac_grid_y: Pac-Man's current row on the grid.
+        :param blinky_pos_x: Blinky's current column on the grid.
+        :param blinky_pos_y: Blinky's current row on the grid.
+        """
         if self.path_to_pac_man is None:
             pac_ref_x, pac_ref_y = pac_grid_x, pac_grid_y
             if pacman_dir == Directions.UP:
@@ -646,6 +676,10 @@ class Inky(Ghost):
 
 
 class Pinky(Ghost):
+    """
+    Pinky ghost — ambushes Pac-Man by targeting 4 cells ahead
+    of his current direction of movement.
+    """
     def __init__(
         self,
         name: str,
@@ -657,10 +691,22 @@ class Pinky(Ghost):
         scared_img: List[pygame.Surface],
         eaten_img: Dict[str, pygame.Surface],
     ) -> None:
+        """
+        Initialize Pinky with position, speed, cell size and sprite images.
+
+        :param name: Ghost identifier name.
+        :param grid_x: Initial column position on the grid.
+        :param grid_y: Initial row position on the grid.
+        :param speed: Movement speed in pixels per frame.
+        :param cell_size: Size of one grid cell in pixels.
+        :param img: Directional sprites keyed by direction name.
+        :param scared_img: Sprite frames for scared state.
+        :param eaten_img: Directional sprites for eaten state.
+        """
         super().__init__(
             name, grid_x, grid_y, speed, cell_size, img, scared_img, eaten_img
         )
-        self.path_to_pac_man: List[Tuple[int, int]] | None = None
+        self.path_to_pac_man: Optional[List[Tuple[int, int]]] = None
 
     def move(
         self, map: List[List[List[int]]],
@@ -668,6 +714,19 @@ class Pinky(Ghost):
         pac_grid_x: int,
         pac_grid_y: int
     ) -> None:
+        """
+        Move Pinky toward a target 4 cells ahead of Pac-Man's direction.
+
+        Computes an intercept point based on Pac-Man's current direction,
+        clamps it within map bounds, pathfinds to it, then advances
+        one step per call. Falls back to Pac-Man's exact position
+        if no path is found to the intercept point.
+
+        :param map: 2D grid representing the game map.
+        :param pacman_dir: Current movement direction of Pac-Man.
+        :param pac_grid_x: Pac-Man's current column on the grid.
+        :param pac_grid_y: Pac-Man's current row on the grid.
+        """
         if self.path_to_pac_man is None:
             pac_ref_x, pac_ref_y = pac_grid_x, pac_grid_y
             if pacman_dir == Directions.UP:
