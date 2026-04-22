@@ -4,6 +4,7 @@ import heapq
 from typing import Dict, List, Tuple, Any
 from abc import ABC, abstractmethod
 from .enums_class import Directions, PlayingState, Mode
+import numpy as np
 
 
 class Entity(ABC):
@@ -576,7 +577,8 @@ class Inky(Ghost):
     def move(
         self, map: List[List[List[int]]], pac_grid_x: int, pac_grid_y: int
     ) -> None:
-        pass
+        current_pos = 
+        two_cell = 
 
 
 class Pinky(Ghost):

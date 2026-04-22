@@ -7,6 +7,7 @@ requires-python = ">=3.14"
 dependencies = [
     "mazegen",
     "mypy>=1.19.1",
+    "numpy>=2.4.4",
     "pydantic>=2.12.5",
     "pygame-ce>=2.5.6",
 ]
