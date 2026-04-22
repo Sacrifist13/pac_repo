@@ -19,6 +19,7 @@ class AssetsManager:
         Initializes the asset containers and default audio state.
         """
         self.img: Dict[str, pygame.Surface | pygame.surface.Surface] = {}
+        self.icon: Dict[str, pygame.Surface]
         self.sound: Dict[str, Any] = {}
         self.game_img: Dict[str, Any] = {}
         self.countdown_play = False
@@ -71,6 +72,8 @@ class AssetsManager:
         for img in assets_dir.rglob("*.png"):
             img_name = img.name.split(".")[0]
             self.img[img_name] = pygame.image.load(img).convert_alpha()
+            if "icon" in img.parts:
+                self.icon = pygame.image.load(img).convert_alpha()
 
         for img in assets_dir.rglob("*.jpeg"):
             img_name = img.name.split(".")[0]

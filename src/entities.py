@@ -661,11 +661,72 @@ class Pinky(Ghost):
         super().__init__(
             name, grid_x, grid_y, speed, cell_size, img, scared_img, eaten_img
         )
+        self.path_to_pac_man: List[Tuple[int, int]] | None = None
 
     def move(
-        self, map: List[List[List[int]]], pac_grid_x: int, pac_grid_y: int
+        self, map: List[List[List[int]]],
+        pacman_dir: Directions,
+        pac_grid_x: int,
+        pac_grid_y: int
     ) -> None:
-        pass
+        if self.path_to_pac_man is None:
+            pac_ref_x, pac_ref_y = pac_grid_x, pac_grid_y
+            if pacman_dir == Directions.UP:
+                pac_ref_y -= 4
+            elif pacman_dir == Directions.DOWN:
+                pac_ref_y += 4
+            elif pacman_dir == Directions.LEFT:
+                pac_ref_x -= 4
+            elif pacman_dir == Directions.RIGHT:
+                pac_ref_x += 4
+
+            map_widht = len(map)
+            map_height = len(map[0])
+            target_pix = max(0, min(pac_ref_x, map_height - 1))
+            target_piy = max(0, min(pac_ref_y, map_widht - 1))
+            self.path_to_pac_man = self._find_fastest_way_to(map,
+                                                             target_pix,
+                                                             target_piy)
+
+        if not self.path_to_pac_man:
+            self.path_to_pac_man = self._find_fastest_way_to(map,
+                                                             pac_grid_x,
+                                                             pac_grid_y)
+
+        if not self.path_to_pac_man:
+            return
+
+        y, x = self.path_to_pac_man[-1][0], self.path_to_pac_man[-1][1]
+
+        self.target_y, self.target_x = (
+                y * self.cell_size,
+                x * self.cell_size,
+            )
+
+        directions = {
+            (-1, 0): Directions.UP,
+            (1, 0): Directions.DOWN,
+            (0, 1): Directions.RIGHT,
+            (0, -1): Directions.LEFT
+        }
+
+        dy, dx = y - self.grid_y, x - self.grid_x
+        self.direction = directions[(dy, dx)]
+
+        if self.pixel_x == self.target_x and self.pixel_y == self.target_y:
+            self.path_to_pac_man = None
+            self.grid_x = int(self.target_x // self.cell_size)
+            self.grid_y = int(self.target_y // self.cell_size)
+            return
+
+        if self.pixel_x < self.target_x:
+            self.pixel_x = min(self.pixel_x + self.speed, self.target_x)
+        elif self.pixel_x > self.target_x:
+            self.pixel_x = max(self.pixel_x - self.speed, self.target_x)
+        elif self.pixel_y < self.target_y:
+            self.pixel_y = min(self.pixel_y + self.speed, self.target_y)
+        elif self.pixel_y > self.target_y:
+            self.pixel_y = max(self.pixel_y - self.speed, self.target_y)
 
 
 class PacMan(Entity):

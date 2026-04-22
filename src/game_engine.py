@@ -646,10 +646,6 @@ class GameEngine:
             return
 
         blinky = self.ghosts.get("blinky")
-        blinky.grid_x, blinky.grid_y = 10, 10
-        blinky.pixel_x = blinky.grid_x * blinky.cell_size
-        blinky.pixel_y = blinky.grid_y * blinky.cell_size
-        blinky.speed = 0
         if self.playing_state == PlayingState.POWER:
             for ghost in self.ghosts.values():
                 if ghost.mode == Mode.SCARED:
@@ -687,9 +683,15 @@ class GameEngine:
                         ghost.move(self.map,
                                    self.pac_man.grid_x,
                                    self.pac_man.grid_y)
+                    elif (
+                        ghost.name == "pinky"
+                        and self.pac_man.mode != Mode.INVINCIBLE
+                    ):
+                        ghost.move(self.map,
+                                   self.pac_man.direction,
+                                   self.pac_man.grid_x,
+                                   self.pac_man.grid_y)
                     # Rajouter un if pac_man.mode == Mode.INVINCIBLE
-                    # else:
-                    #     ghost.move_random(self.map)
                 elif ghost.mode == Mode.EAT:
                     if ghost.move_to_start_pos(self.map):
                         ghost.mode = Mode.NORMAL
@@ -2699,7 +2701,7 @@ class GameEngine:
         self.virtual_screen = pygame.Surface((800, 800))
 
         self._init_game()
-
+        pygame.display.set_icon(self.assets_manager.icon)
         clock = pygame.time.Clock()
         running = True
 
