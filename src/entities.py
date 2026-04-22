@@ -566,6 +566,7 @@ class Inky(Ghost):
         grid_y: int,
         speed: int,
         cell_size: int,
+        pacman_dir: Directions,
         img: Dict[str, pygame.Surface],
         scared_img: List[pygame.Surface],
         eaten_img: Dict[str, pygame.Surface],
@@ -573,12 +574,40 @@ class Inky(Ghost):
         super().__init__(
             name, grid_x, grid_y, speed, cell_size, img, scared_img, eaten_img
         )
+        self.path_to_pacman: List[Tuple[int, int]] | None = None
 
     def move(
         self, map: List[List[List[int]]], pac_grid_x: int, pac_grid_y: int
     ) -> None:
-        current_pos = 
-        two_cell = 
+        if self.path_to_pacman is None:
+            self.path_to_pacman = self._find_fastest_way_to(map,
+                                                            pac_grid_x,
+                                                            pac_grid_y)
+        if not self.path_to_pacman:
+            return
+
+        pac_ref_x = pac_grid_x
+        pac_ref_y = pac_grid_y
+        pac_direction = {
+            (-1, 0): Directions.UP,
+            (1, 0): Directions.DOWN,
+            (0, 1): Directions.RIGHT,
+            (0, -1): Directions.LEFT
+        }
+        self.pac_direction[(pac_ref_x, pac_ref_y)]
+        if pac_direction == Directions.UP:
+            pac_ref_y -= 2
+        elif pac_direction == Directions.DOWN:
+            pac_ref_y += 2
+        elif pac_direction == Directions.LEFT:
+            pac_ref_x -= 2
+        elif pac_direction == Directions.RIGHT:
+            pac_ref_x += 2
+        # target_x = max()
+        # target_y = max()
+        self.path_to_pacman = self._find_fastest_way_to(map,
+                                                        pac_grid_x,
+                                                        pac_grid_y)
 
 
 class Pinky(Ghost):
