@@ -9,7 +9,6 @@ from .highscores import HighScoreManager
 from .map_generator import MapGenerator
 from .enums_class import GameState, Directions, PlayingState, Mode
 from .entities import PacMan, Ghost, Blinky, Clyde, Inky, Pinky
-from .highscores import HighScoreManager
 
 
 class GameEngine:
