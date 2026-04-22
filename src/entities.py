@@ -555,7 +555,6 @@ class Clyde(Ghost):
     def move(
         self, map: List[List[List[int]]], pac_grid_x: int, pac_grid_y: int
     ) -> None:
-        pass
 
 
 class Inky(Ghost):
@@ -566,7 +565,6 @@ class Inky(Ghost):
         grid_y: int,
         speed: int,
         cell_size: int,
-        pacman_dir: Directions,
         img: Dict[str, pygame.Surface],
         scared_img: List[pygame.Surface],
         eaten_img: Dict[str, pygame.Surface],
@@ -577,7 +575,12 @@ class Inky(Ghost):
         self.path_to_pacman: List[Tuple[int, int]] | None = None
 
     def move(
-        self, map: List[List[List[int]]], pac_grid_x: int, pac_grid_y: int
+        self, map: List[List[List[int]]],
+        pacman_dir: Directions,
+        pac_grid_x: int,
+        pac_grid_y: int,
+        blinky_pos_x: int,
+        blinky_pos_y: int
     ) -> None:
         if self.path_to_pacman is None:
             self.path_to_pacman = self._find_fastest_way_to(map,
@@ -586,28 +589,24 @@ class Inky(Ghost):
         if not self.path_to_pacman:
             return
 
-        pac_ref_x = pac_grid_x
-        pac_ref_y = pac_grid_y
-        pac_direction = {
-            (-1, 0): Directions.UP,
-            (1, 0): Directions.DOWN,
-            (0, 1): Directions.RIGHT,
-            (0, -1): Directions.LEFT
-        }
-        self.pac_direction[(pac_ref_x, pac_ref_y)]
-        if pac_direction == Directions.UP:
+        pac_ref_x, pac_ref_y = pac_grid_x, pac_grid_y
+        if pacman_dir == Directions.UP:
             pac_ref_y -= 2
-        elif pac_direction == Directions.DOWN:
+        elif pacman_dir == Directions.DOWN:
             pac_ref_y += 2
-        elif pac_direction == Directions.LEFT:
+        elif pacman_dir == Directions.LEFT:
             pac_ref_x -= 2
-        elif pac_direction == Directions.RIGHT:
+        elif pacman_dir == Directions.RIGHT:
             pac_ref_x += 2
+
+        vector_x = pac_ref_x - blinky_pos_x  # bl----->pc
+        vector_y = pac_ref_y - blinky_pos_y
+        # bl----->pc------->target x/y  encercle
+        self.target_x = blinky_pos_x + (vector_x * 2)  #cb? case d/g
+        self.target_y = blinky_pos_y + (vector_y * 2)  # h/b
+
         # target_x = max()
         # target_y = max()
-        self.path_to_pacman = self._find_fastest_way_to(map,
-                                                        pac_grid_x,
-                                                        pac_grid_y)
 
 
 class Pinky(Ghost):
