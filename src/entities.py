@@ -555,6 +555,7 @@ class Clyde(Ghost):
     def move(
         self, map: List[List[List[int]]], pac_grid_x: int, pac_grid_y: int
     ) -> None:
+        pass
 
 
 class Inky(Ghost):
@@ -572,7 +573,7 @@ class Inky(Ghost):
         super().__init__(
             name, grid_x, grid_y, speed, cell_size, img, scared_img, eaten_img
         )
-        self.path_to_pacman: List[Tuple[int, int]] | None = None
+        self.path_to_pac_man: List[Tuple[int, int]] | None = None
 
     def move(
         self, map: List[List[List[int]]],
@@ -580,33 +581,69 @@ class Inky(Ghost):
         pac_grid_x: int,
         pac_grid_y: int,
         blinky_pos_x: int,
-        blinky_pos_y: int
+        blinky_pos_y: int,
     ) -> None:
-        if self.path_to_pacman is None:
-            self.path_to_pacman = self._find_fastest_way_to(map,
-                                                            pac_grid_x,
-                                                            pac_grid_y)
-        if not self.path_to_pacman:
+        if self.path_to_pac_man is None:
+            pac_ref_x, pac_ref_y = pac_grid_x, pac_grid_y
+            if pacman_dir == Directions.UP:
+                pac_ref_y -= 2
+            elif pacman_dir == Directions.DOWN:
+                pac_ref_y += 2
+            elif pacman_dir == Directions.LEFT:
+                pac_ref_x -= 2
+            elif pacman_dir == Directions.RIGHT:
+                pac_ref_x += 2
+
+            vector_x = pac_ref_x - blinky_pos_x  # bl----->pc
+            vector_y = pac_ref_y - blinky_pos_y
+            # bl----->pc------->target x/y  encercle
+            target_inx = blinky_pos_x + (vector_x * 2)  # cb? case d/g
+            target_iny = blinky_pos_y + (vector_y * 2)  # h/b
+
+            map_widht = len(map)
+            map_height = len(map[0])
+            target_inx = max(0, min(target_inx, map_height - 1))
+            target_iny = max(0, min(target_iny, map_widht - 1))
+            self.path_to_pac_man = self._find_fastest_way_to(map,
+                                                             target_inx,
+                                                             target_iny)
+
+        if not self.path_to_pac_man:
+            self.path_to_pac_man = self._find_fastest_way_to(map,
+                                                             pac_grid_x,
+                                                             pac_grid_y)
+
+        y, x = self.path_to_pac_man[-1][0], self.path_to_pac_man[-1][1]
+
+        self.target_y, self.target_x = (
+                y * self.cell_size,
+                x * self.cell_size,
+            )
+
+        directions = {
+            (-1, 0): Directions.UP,
+            (1, 0): Directions.DOWN,
+            (0, 1): Directions.RIGHT,
+            (0, -1): Directions.LEFT
+        }
+
+        dy, dx = y - self.grid_y, x - self.grid_x
+        self.direction = directions[(dy, dx)]
+
+        if self.pixel_x == self.target_x and self.pixel_y == self.target_y:
+            self.path_to_pac_man = None  # end == recalcul
+            self.grid_x = int(self.target_x // self.cell_size)
+            self.grid_y = int(self.target_y // self.cell_size)
             return
 
-        pac_ref_x, pac_ref_y = pac_grid_x, pac_grid_y
-        if pacman_dir == Directions.UP:
-            pac_ref_y -= 2
-        elif pacman_dir == Directions.DOWN:
-            pac_ref_y += 2
-        elif pacman_dir == Directions.LEFT:
-            pac_ref_x -= 2
-        elif pacman_dir == Directions.RIGHT:
-            pac_ref_x += 2
-
-        vector_x = pac_ref_x - blinky_pos_x  # bl----->pc
-        vector_y = pac_ref_y - blinky_pos_y
-        # bl----->pc------->target x/y  encercle
-        self.target_x = blinky_pos_x + (vector_x * 2)  #cb? case d/g
-        self.target_y = blinky_pos_y + (vector_y * 2)  # h/b
-
-        # target_x = max()
-        # target_y = max()
+        if self.pixel_x < self.target_x:
+            self.pixel_x = min(self.pixel_x + self.speed, self.target_x)
+        elif self.pixel_x > self.target_x:
+            self.pixel_x = max(self.pixel_x - self.speed, self.target_x)
+        elif self.pixel_y < self.target_y:
+            self.pixel_y = min(self.pixel_y + self.speed, self.target_y)
+        elif self.pixel_y > self.target_y:
+            self.pixel_y = max(self.pixel_y - self.speed, self.target_y)
 
 
 class Pinky(Ghost):

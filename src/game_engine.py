@@ -645,6 +645,11 @@ class GameEngine:
         if self.playing_state == PlayingState.LEVEL_PASS:
             return
 
+        blinky = self.ghosts.get("blinky")
+        blinky.grid_x, blinky.grid_y = 10, 10
+        blinky.pixel_x = blinky.grid_x * blinky.cell_size
+        blinky.pixel_y = blinky.grid_y * blinky.cell_size
+        blinky.speed = 0
         if self.playing_state == PlayingState.POWER:
             for ghost in self.ghosts.values():
                 if ghost.mode == Mode.SCARED:
@@ -665,10 +670,21 @@ class GameEngine:
                         ghost.move(
                             self.map, self.pac_man.grid_x, self.pac_man.grid_y
                         )
-                    else:
-                        ghost.move_random(self.map)
+                    elif (
+                        ghost.name == "inky"
+                        and self.pac_man.mode != Mode.INVINCIBLE
+                    ):
+                        if blinky:
+                            ghost.move(
+                                self.map, self.pac_man.direction,
+                                self.pac_man.grid_x, self.pac_man.grid_y,
+                                blinky.grid_x, blinky.grid_y
+                            )
+                        else:
+                            ghost.move_random(self.map)
                     # Rajouter un if pac_man.mode == Mode.INVINCIBLE
-                    # else avec le vrai algo des fantomes ghost.move()
+                    # else:
+                    #     ghost.move_random(self.map)
                 elif ghost.mode == Mode.EAT:
                     if ghost.move_to_start_pos(self.map):
                         ghost.mode = Mode.NORMAL
