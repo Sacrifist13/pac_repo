@@ -555,7 +555,7 @@ class Clyde(Ghost):
     def move(
         self, map: List[List[List[int]]], pac_grid_x: int, pac_grid_y: int
     ) -> None:
-        pass
+        self.move_random(map)
 
 
 class Inky(Ghost):

@@ -680,8 +680,13 @@ class GameEngine:
                                 self.pac_man.grid_x, self.pac_man.grid_y,
                                 blinky.grid_x, blinky.grid_y
                             )
-                        else:
-                            ghost.move_random(self.map)
+                    elif (
+                        ghost.name == "clyde"
+                        and self.pac_man.mode != Mode.INVINCIBLE
+                    ):
+                        ghost.move(self.map,
+                                   self.pac_man.grid_x,
+                                   self.pac_man.grid_y)
                     # Rajouter un if pac_man.mode == Mode.INVINCIBLE
                     # else:
                     #     ghost.move_random(self.map)
