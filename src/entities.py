@@ -116,7 +116,7 @@ class Entity(ABC):
         pass
 
 
-class Ghost(Entity, ABC):
+class Ghost(Entity):
     """
     Abstract base class for all Ghost entities.
 
@@ -446,16 +446,6 @@ class Ghost(Entity, ABC):
 
         surface.blit(current_img, (px, py))
 
-    def move(
-        self, map: List[List[List[int]]],
-        pac_grid_x: int,
-        pac_grid_y: int,
-        pacman_dir: Optional[Directions] = None,
-        blinky_pos_x: Optional[int] = None,
-        blinky_pos_y: Optional[int] = None
-    ) -> None:
-        pass
-
 
 class Blinky(Ghost):
     """
@@ -488,12 +478,7 @@ class Blinky(Ghost):
         self.path_to_pac_man: Optional[List[Tuple[int, int]]] = None
 
     def move(
-        self, map: List[List[List[int]]],
-        pac_grid_x: int,
-        pac_grid_y: int,
-        pacman_dir: Optional[Directions] = None,
-        blinky_pos_x: Optional[int] = None,
-        blinky_pos_y: Optional[int] = None,
+        self, map: List[List[List[int]]], pac_grid_x: int, pac_grid_y: int
     ) -> None:
         """
         Calculates and executes Blinky's aggressive pursuit logic.
@@ -561,16 +546,6 @@ class Clyde(Ghost):
             name, grid_x, grid_y, speed, cell_size, img, scared_img, eaten_img
         )
 
-    def move(
-        self, map: List[List[List[int]]],
-        pac_grid_x: int,
-        pac_grid_y: int,
-        pacman_dir: Optional[Directions] = None,
-        blinky_pos_x: Optional[int] = None,
-        blinky_pos_y: Optional[int] = None,
-    ) -> None:
-        self.move_random(map)
-
 
 class Inky(Ghost):
     def __init__(
@@ -590,7 +565,8 @@ class Inky(Ghost):
         self.path_to_pac_man: Optional[List[Tuple[int, int]]] = None
 
     def move(
-        self, map: List[List[List[int]]],
+        self,
+        map: List[List[List[int]]],
         pac_grid_x: int,
         pac_grid_y: int,
         pacman_dir: Optional[Directions] = None,
@@ -620,27 +596,27 @@ class Inky(Ghost):
             map_height = len(map[0])
             target_inx = max(0, min(target_inx, map_height - 1))
             target_iny = max(0, min(target_iny, map_widht - 1))
-            self.path_to_pac_man = self._find_fastest_way_to(map,
-                                                             target_inx,
-                                                             target_iny)
+            self.path_to_pac_man = self._find_fastest_way_to(
+                map, target_inx, target_iny
+            )
 
         if not self.path_to_pac_man:
-            self.path_to_pac_man = self._find_fastest_way_to(map,
-                                                             pac_grid_x,
-                                                             pac_grid_y)
+            self.path_to_pac_man = self._find_fastest_way_to(
+                map, pac_grid_x, pac_grid_y
+            )
 
             y, x = self.path_to_pac_man[-1][0], self.path_to_pac_man[-1][1]
 
             self.target_y, self.target_x = (
-                    y * self.cell_size,
-                    x * self.cell_size,
-                )
+                y * self.cell_size,
+                x * self.cell_size,
+            )
 
             directions = {
                 (-1, 0): Directions.UP,
                 (1, 0): Directions.DOWN,
                 (0, 1): Directions.RIGHT,
-                (0, -1): Directions.LEFT
+                (0, -1): Directions.LEFT,
             }
 
             dy, dx = y - self.grid_y, x - self.grid_x
@@ -680,12 +656,11 @@ class Pinky(Ghost):
         self.path_to_pac_man: Optional[List[Tuple[int, int]]] = None
 
     def move(
-        self, map: List[List[List[int]]],
+        self,
+        map: List[List[List[int]]],
         pac_grid_x: int,
         pac_grid_y: int,
         pacman_dir: Optional[Directions] = None,
-        blinky_pos_x: Optional[int] = None,
-        blinky_pos_y: Optional[int] = None
     ) -> None:
         if self.path_to_pac_man is None:
             pac_ref_x, pac_ref_y = pac_grid_x, pac_grid_y
@@ -702,27 +677,27 @@ class Pinky(Ghost):
             map_height = len(map[0])
             target_pix = max(0, min(pac_ref_x, map_height - 1))
             target_piy = max(0, min(pac_ref_y, map_widht - 1))
-            self.path_to_pac_man = self._find_fastest_way_to(map,
-                                                             target_pix,
-                                                             target_piy)
+            self.path_to_pac_man = self._find_fastest_way_to(
+                map, target_pix, target_piy
+            )
 
         if not self.path_to_pac_man:
-            self.path_to_pac_man = self._find_fastest_way_to(map,
-                                                             pac_grid_x,
-                                                             pac_grid_y)
+            self.path_to_pac_man = self._find_fastest_way_to(
+                map, pac_grid_x, pac_grid_y
+            )
 
             y, x = self.path_to_pac_man[-1][0], self.path_to_pac_man[-1][1]
 
             self.target_y, self.target_x = (
-                    y * self.cell_size,
-                    x * self.cell_size,
-                )
+                y * self.cell_size,
+                x * self.cell_size,
+            )
 
             directions = {
                 (-1, 0): Directions.UP,
                 (1, 0): Directions.DOWN,
                 (0, 1): Directions.RIGHT,
-                (0, -1): Directions.LEFT
+                (0, -1): Directions.LEFT,
             }
 
             # grid_y/x pos du fantome sur grid
@@ -883,9 +858,7 @@ class PacMan(Entity):
         heading, and handles visual blinking effects when Pac-Man is
         in INVINCIBLE mode.
         """
-        current_img = self.img[
-            "pac_2"
-        ]
+        current_img = self.img["pac_2"]
 
         if self.mode == Mode.INVINCIBLE:
             self.j += 1

@@ -645,7 +645,6 @@ class GameEngine:
         if self.playing_state == PlayingState.LEVEL_PASS:
             return
 
-        blinky = self.ghosts.get("blinky")
         if self.playing_state == PlayingState.POWER:
             for ghost in self.ghosts.values():
                 if ghost.mode == Mode.SCARED:
@@ -658,45 +657,31 @@ class GameEngine:
 
         else:
             for ghost in self.ghosts.values():
-                if ghost.mode == Mode.NORMAL:
-                    if (
-                        ghost.name == "blinky"
-                        and self.pac_man.mode != Mode.INVINCIBLE
-                    ):
+                if self.pac_man.mode == Mode.INVINCIBLE:
+                    ghost.move_random(self.map)
+                elif ghost.mode == Mode.NORMAL:
+                    if ghost.name == "blinky" and isinstance(ghost, Blinky):
                         ghost.move(
                             self.map, self.pac_man.grid_x, self.pac_man.grid_y
                         )
-                    elif (
-                        ghost.name == "inky"
-                        and self.pac_man.mode != Mode.INVINCIBLE
-                    ):
-                        if blinky:
-                            ghost.move(
-                                self.map,
-                                self.pac_man.grid_x,
-                                self.pac_man.grid_y,
-                                self.pac_man.direction,
-                                blinky.grid_x,
-                                blinky.grid_y,
-                            )
-                    elif (
-                        ghost.name == "clyde"
-                        and self.pac_man.mode != Mode.INVINCIBLE
-                    ):
+                    elif ghost.name == "clyde":
+                        ghost.move_random(self.map)
+                    elif ghost.name == "inky" and isinstance(ghost, Inky):
                         ghost.move(
-                            self.map, self.pac_man.grid_x, self.pac_man.grid_y
+                            self.map,
+                            self.pac_man.grid_x,
+                            self.pac_man.grid_y,
+                            self.pac_man.direction,
+                            self.ghosts["blinky"].grid_x,
+                            self.ghosts["blinky"].grid_y,
                         )
-                    elif (
-                        ghost.name == "pinky"
-                        and self.pac_man.mode != Mode.INVINCIBLE
-                    ):
+                    elif ghost.name == "pinky" and isinstance(ghost, Pinky):
                         ghost.move(
                             self.map,
                             self.pac_man.grid_x,
                             self.pac_man.grid_y,
                             self.pac_man.direction,
                         )
-                    # Rajouter un if pac_man.mode == Mode.INVINCIBLE
                 elif ghost.mode == Mode.EAT:
                     if ghost.move_to_start_pos(self.map):
                         ghost.mode = Mode.NORMAL
@@ -823,6 +808,7 @@ class GameEngine:
                     self.music_load = False
                     self.death_time = current_time
                     self.lives -= 1
+                    self.pac_man.mode = Mode.INVINCIBLE
 
                 elif ghost.mode == Mode.SCARED:
                     self.assets_manager.play_sound(
@@ -1600,7 +1586,6 @@ class GameEngine:
 
                 if self._render_pac_man_dying():
                     self.pac_man.dying_time = current_time
-                    self.pac_man.mode = Mode.INVINCIBLE
 
                     self.music_load = False
 
