@@ -573,8 +573,10 @@ class Inky(Ghost):
         blinky_pos_x: Optional[int] = None,
         blinky_pos_y: Optional[int] = None,
     ) -> None:
+
         if pacman_dir is None or blinky_pos_x is None or blinky_pos_y is None:
             return
+
         if self.path_to_pac_man is None:
             pac_ref_x, pac_ref_y = pac_grid_x, pac_grid_y
             if pacman_dir == Directions.UP:
@@ -586,11 +588,11 @@ class Inky(Ghost):
             elif pacman_dir == Directions.RIGHT:
                 pac_ref_x += 2
 
-            vector_x = pac_ref_x - blinky_pos_x  # bl----->pc
+            vector_x = pac_ref_x - blinky_pos_x
             vector_y = pac_ref_y - blinky_pos_y
-            # bl----->pc------->target x/y  encercle
-            target_inx = blinky_pos_x + (vector_x * 2)  # cb? case d/g
-            target_iny = blinky_pos_y + (vector_y * 2)  # h/b
+
+            target_inx = blinky_pos_x + (vector_x * 2)
+            target_iny = blinky_pos_y + (vector_y * 2)
 
             map_widht = len(map)
             map_height = len(map[0])
@@ -601,29 +603,27 @@ class Inky(Ghost):
             )
 
         if not self.path_to_pac_man:
-            self.path_to_pac_man = self._find_fastest_way_to(
-                map, pac_grid_x, pac_grid_y
-            )
+            return
 
-            y, x = self.path_to_pac_man[-1][0], self.path_to_pac_man[-1][1]
+        y, x = self.path_to_pac_man[-1][0], self.path_to_pac_man[-1][1]
 
-            self.target_y, self.target_x = (
-                y * self.cell_size,
-                x * self.cell_size,
-            )
+        self.target_y, self.target_x = (
+            y * self.cell_size,
+            x * self.cell_size,
+        )
 
-            directions = {
-                (-1, 0): Directions.UP,
-                (1, 0): Directions.DOWN,
-                (0, 1): Directions.RIGHT,
-                (0, -1): Directions.LEFT,
-            }
+        directions = {
+            (-1, 0): Directions.UP,
+            (1, 0): Directions.DOWN,
+            (0, 1): Directions.RIGHT,
+            (0, -1): Directions.LEFT,
+        }
 
-            dy, dx = y - self.grid_y, x - self.grid_x
-            self.direction = directions[(dy, dx)]
+        dy, dx = y - self.grid_y, x - self.grid_x
+        self.direction = directions[(dy, dx)]
 
         if self.pixel_x == self.target_x and self.pixel_y == self.target_y:
-            self.path_to_pac_man = None  # end == recalcul
+            self.path_to_pac_man = None
             self.grid_x = int(self.target_x // self.cell_size)
             self.grid_y = int(self.target_y // self.cell_size)
             return
@@ -681,47 +681,25 @@ class Pinky(Ghost):
                 map, target_pix, target_piy
             )
 
-            y, x = self.path_to_pac_man[-1][0], self.path_to_pac_man[-1][1]
-
-            self.target_y, self.target_x = (
-                y * self.cell_size,
-                x * self.cell_size,
-            )
-
-            directions = {
-                (-1, 0): Directions.UP,
-                (1, 0): Directions.DOWN,
-                (0, 1): Directions.RIGHT,
-                (0, -1): Directions.LEFT,
-            }
-
-            dy, dx = y - self.grid_y, x - self.grid_x
-            self.direction = directions[(dy, dx)]
-
         if not self.path_to_pac_man:
-            self.path_to_pac_man = self._find_fastest_way_to(
-                map, pac_grid_x, pac_grid_y
-            )
+            return
 
-            y, x = self.path_to_pac_man[-1][0], self.path_to_pac_man[-1][1]
+        y, x = self.path_to_pac_man[-1][0], self.path_to_pac_man[-1][1]
 
-            self.target_y, self.target_x = (
-                y * self.cell_size,
-                x * self.cell_size,
-            )
+        self.target_y, self.target_x = (
+            y * self.cell_size,
+            x * self.cell_size,
+        )
 
-            directions = {
-                (-1, 0): Directions.UP,
-                (1, 0): Directions.DOWN,
-                (0, 1): Directions.RIGHT,
-                (0, -1): Directions.LEFT,
-            }
+        directions = {
+            (-1, 0): Directions.UP,
+            (1, 0): Directions.DOWN,
+            (0, 1): Directions.RIGHT,
+            (0, -1): Directions.LEFT,
+        }
 
-            # grid_y/x pos du fantome sur grid
-            #  1 - 2 = -1 == .UP
-            # -3 != dict crash
-            dy, dx = y - self.grid_y, x - self.grid_x
-            self.direction = directions[(dy, dx)]  # up/down ...
+        dy, dx = y - self.grid_y, x - self.grid_x
+        self.direction = directions[(dy, dx)]
 
         if self.pixel_x == self.target_x and self.pixel_y == self.target_y:
             self.path_to_pac_man = None
