@@ -40,7 +40,7 @@ python3 pac-man.py config.json
 * **Retro Game Mechanics**: Research into the original 1980 AI patterns and "kill screen" logic.
 
 ### AI Implementation Statement
-In accordance with Chapter II[cite: 17], AI tools were utilized to:
+In accordance with Chapter II, AI tools were utilized to:
 1.  **Refine Prompting Skills**: Used to generate boilerplate for the `A-Maze-ing` package adapter.
 2.  **Code Review**: Assisted in identifying potential edge cases for exception handling and resource management (ensuring no crashes or leaks).
 3.  **Unit Test Ideas**: AI suggested testing strategies for the maze parsing logic, which were then peer-reviewed and implemented via `pytest`.
