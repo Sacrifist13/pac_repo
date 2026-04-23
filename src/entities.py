@@ -597,8 +597,6 @@ class Inky(Ghost):
         blinky_pos_x: Optional[int] = None,
         blinky_pos_y: Optional[int] = None,
     ) -> None:
-        if pacman_dir is None or blinky_pos_x is None or blinky_pos_y is None:
-            return
         if self.path_to_pac_man is None:
             pac_ref_x, pac_ref_y = pac_grid_x, pac_grid_y
             if pacman_dir == Directions.UP:
