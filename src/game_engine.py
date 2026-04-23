@@ -672,25 +672,30 @@ class GameEngine:
                     ):
                         if blinky:
                             ghost.move(
-                                self.map, self.pac_man.direction,
-                                self.pac_man.grid_x, self.pac_man.grid_y,
-                                blinky.grid_x, blinky.grid_y
+                                self.map,
+                                self.pac_man.direction,
+                                self.pac_man.grid_x,
+                                self.pac_man.grid_y,
+                                blinky.grid_x,
+                                blinky.grid_y,
                             )
                     elif (
                         ghost.name == "clyde"
                         and self.pac_man.mode != Mode.INVINCIBLE
                     ):
-                        ghost.move(self.map,
-                                   self.pac_man.grid_x,
-                                   self.pac_man.grid_y)
+                        ghost.move(
+                            self.map, self.pac_man.grid_x, self.pac_man.grid_y
+                        )
                     elif (
                         ghost.name == "pinky"
                         and self.pac_man.mode != Mode.INVINCIBLE
                     ):
-                        ghost.move(self.map,
-                                   self.pac_man.direction,
-                                   self.pac_man.grid_x,
-                                   self.pac_man.grid_y)
+                        ghost.move(
+                            self.map,
+                            self.pac_man.direction,
+                            self.pac_man.grid_x,
+                            self.pac_man.grid_y,
+                        )
                     # Rajouter un if pac_man.mode == Mode.INVINCIBLE
                 elif ghost.mode == Mode.EAT:
                     if ghost.move_to_start_pos(self.map):
@@ -2091,11 +2096,13 @@ class GameEngine:
 
         x_start = self.WIDTH // 2
         y_start = self.WIDTH // 2
-        HighScoreManager.display_score(self.config.highscore_filename,
-                                       self.virtual_screen,
-                                       x_start,
-                                       y_start,
-                                       self.assets_manager)
+        HighScoreManager.display_score(
+            self.config.highscore_filename,
+            self.virtual_screen,
+            x_start,
+            y_start,
+            self.assets_manager,
+        )
         back_text_1 = self.assets_manager.f_back_over.render(
             "Back", True, self.GRAY
         )
@@ -2244,7 +2251,9 @@ class GameEngine:
 
         x_max, y_max = 40 + volume_w, 120 + h + offset_y + volume_h
 
-        if self._is_hover(mouse_x, mouse_y, 40, x_max, 120 + h, y_max):
+        if self._is_hover(
+            mouse_x, mouse_y, 40, x_max, 120 + h + offset_y, y_max
+        ):
             pygame.draw.rect(
                 self.virtual_screen,
                 hover_music_color,
@@ -2428,8 +2437,7 @@ class GameEngine:
                                     self.playing_state = PlayingState.RETREATE
                                     self.current_level = 1
                                     self.score = 0
-                                    # self.lives = self.config.lives
-                                    self.lives = 1
+                                    self.lives = self.config.lives
                                     self.pseudo = ""
                                     self.countdown_play = False
                                     self._generate_map()
