@@ -27,14 +27,26 @@ class MapGenerator:
             with open("level.txt", "w") as f:
                 f.write(config)
 
-            generator = MazeGenerator()
+            generator = MazeGenerator("level.txt")
 
-            generator.load_config("level.txt")
-            generator.generate_logo()
-            generator.generate_maze()
-            generator.add_solutions()
+            if level != 1:
+                generator.seed = None
 
-            return (generator._maze, generator._logo_coordinate)
+            map = generator.maze_gen()
+            map_hex_str = generator.convert_hex_maze(map)
+
+            maze_map = [
+                [[int(c, 16), 0] for c in line] for line in map_hex_str
+            ]
+
+            logo_coordinate = []
+
+            for x, col in enumerate(maze_map):
+                for y, block in enumerate(col):
+                    if maze_map[y][x][0] == 15:
+                        logo_coordinate.append((x, y))
+
+            return (maze_map, logo_coordinate)
 
         except Exception as e:
             print(f"Error {e}")

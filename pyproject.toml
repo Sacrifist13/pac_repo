@@ -12,4 +12,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-mazegen = { path = "mazegen-1.0.0-py3-none-any.whl" }
+mazegen = { path = "mazegen-0.1.0-py3-none-any.whl" }
+
+
+
