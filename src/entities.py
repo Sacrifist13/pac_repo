@@ -673,13 +673,30 @@ class Pinky(Ghost):
             elif pacman_dir == Directions.RIGHT:
                 pac_ref_x += 4
 
-            map_widht = len(map)
+            map_width = len(map)
             map_height = len(map[0])
             target_pix = max(0, min(pac_ref_x, map_height - 1))
-            target_piy = max(0, min(pac_ref_y, map_widht - 1))
+            target_piy = max(0, min(pac_ref_y, map_width - 1))
             self.path_to_pac_man = self._find_fastest_way_to(
                 map, target_pix, target_piy
             )
+
+            y, x = self.path_to_pac_man[-1][0], self.path_to_pac_man[-1][1]
+
+            self.target_y, self.target_x = (
+                y * self.cell_size,
+                x * self.cell_size,
+            )
+
+            directions = {
+                (-1, 0): Directions.UP,
+                (1, 0): Directions.DOWN,
+                (0, 1): Directions.RIGHT,
+                (0, -1): Directions.LEFT,
+            }
+
+            dy, dx = y - self.grid_y, x - self.grid_x
+            self.direction = directions[(dy, dx)]
 
         if not self.path_to_pac_man:
             self.path_to_pac_man = self._find_fastest_way_to(
@@ -705,9 +722,6 @@ class Pinky(Ghost):
             # -3 != dict crash
             dy, dx = y - self.grid_y, x - self.grid_x
             self.direction = directions[(dy, dx)]  # up/down ...
-
-            if not self.path_to_pac_man:
-                return
 
         if self.pixel_x == self.target_x and self.pixel_y == self.target_y:
             self.path_to_pac_man = None
