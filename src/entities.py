@@ -628,6 +628,8 @@ class Inky(Ghost):
             # bl----->pc------->target x/y  encercle
             target_inx = blinky_pos_x + (vector_x * 2)  # cb? case d/g
             target_iny = blinky_pos_y + (vector_y * 2)  # h/b
+            print(target_inx)
+            print(target_iny)
 
             map_widht = len(map)
             map_height = len(map[0])
@@ -742,6 +744,8 @@ class Pinky(Ghost):
             map_height = len(map[0])
             target_pix = max(0, min(pac_ref_x, map_height - 1))
             target_piy = max(0, min(pac_ref_y, map_widht - 1))
+            print(target_pix)
+            print(target_piy)
             self.path_to_pac_man = self._find_fastest_way_to(map,
                                                              target_pix,
                                                              target_piy)
