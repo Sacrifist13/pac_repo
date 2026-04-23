@@ -1,150 +1,110 @@
-<div align="center">
-  <h1>👻 Pac-Man: The Python Rebirth 🕹️</h1>
-  <p><i>This project has been created as part of the 42 curriculum by thsykas and kkraft.</i></p>
-  <p>A modern, modular, and robust recreation of the classic 1980 arcade game in Python.</p>
-</div>
+*This project has been created as part of the 42 curriculum by kkraft, thsykas.*
+
+# Pacman: Ghosts! More ghosts!
+
+## I. Description
+This project is a modern recreation of the 1980 Namco arcade classic, **Pac-Man**, developed in Python 3.10+. The goal was to build a complete, playable game featuring modular architecture, robust error handling, and a polished user interface[cite: 102, 108].This version incorporates the iconic ghost AI behaviors (Blinky, Pinky, Inky, and Clyde), power-up mechanics via Super-pacgums, and a persistent highscore system.
+
+---
+## II. Instructions
+
+### Installation
+The project requires Python 3.10 or later. To install dependencies, use the provided `Makefile`:
+
+```bash
+
+make install
+```
+*This command uses pip, uv, or pipx to handle project requirements.*
+
+### Execution
+The program must be launched from the command line with exactly one configuration file argument:
+```bash
+python3 pac-man.py config.json
+```
+*Note: The configuration file must be a valid JSON file, though comments starting with `#` are supported.*
+
+### Development Tools
+* **Run**: `make run`
+* **Debug**: `make debug` (launches with `pdb`)
+* **Linting**: `make lint` (executes `flake8` and `mypy` with specific strictness flags)
+* **Cleanup**: `make clean` (removes `__pycache__` and `mypy_cache`)
 
 ---
 
-## 📋 Table of Contents
-* [Description](#-description)
-* [Project Planning & Tasks](#-project-planning--tasks)
-* [Technical Rules & Requirements](#-technical-rules--requirements)
-* [Instructions & Usage](#-instructions--usage)
-* [Configuration](#-configuration)
-* [Maze Generation](#-maze-generation)
-* [Highscores](#-highscores)
-* [Implementation & Architecture](#-implementation--architecture)
-* [Project Management](#-project-management)
-* [Resources & AI Usage](#-resources--ai-usage)
+## III. Resources & AI Usage
+
+### References
+* **Python Documentation**: Official 3.10+ guides for type hinting and context managers.
+* **PEP 257/8**: Guidelines for docstrings and coding standards.
+* **Retro Game Mechanics**: Research into the original 1980 AI patterns and "kill screen" logic.
+
+### AI Implementation Statement
+In accordance with Chapter II[cite: 17], AI tools were utilized to:
+1.  **Refine Prompting Skills**: Used to generate boilerplate for the `A-Maze-ing` package adapter.
+2.  **Code Review**: Assisted in identifying potential edge cases for exception handling and resource management (ensuring no crashes or leaks).
+3.  **Unit Test Ideas**: AI suggested testing strategies for the maze parsing logic, which were then peer-reviewed and implemented via `pytest`.
+*All AI-generated logic was thoroughly checked and rewritten where necessary to ensure full understanding and maintainability.*
 
 ---
 
-## 📖 Description
-This project aims to breathe new life into the cultural icon **Pac-Man**, originally released in 1980 by Namco. Built entirely in Python (3.10+), this iteration utilizes Object-Oriented Programming (OOP) and a modular graphical library (like MLX) to deliver a complete, playable arcade experience. It features persistent highscores, dynamic maze generation through external packages, customizable configurations, and a deployment-ready build for public gaming platforms.
+## IV. Configuration
+The game is highly customizable via a JSON configuration file. Unknown keys are ignored, and invalid values are clamped to safe defaults.
+
+| Key | Description | Default Example |
+| :--- | :--- | :--- |
+| `highscore_filename` | Path to the highscore storage file. | `"highscores.json"` |
+| `level` | Array defining parameters for multiple levels. | `[{"width": 20, "height": 20}]` |
+| `lives` | Number of starting lives. | `3` |
+| `points_per_pacgum` | Score awarded for small pellets. | `10` |
+| `seed` | RNG seed for the first level maze. | `42` |
+| `level_max_time` | Time limit per level in seconds. | `90` |
 
 ---
 
-## 📅 Project Planning & Tasks
-
-To ensure smooth delivery, the project is divided into distinct phases. 
-
-### Phase 1: Foundation & Setup
-| Status | Task | Description |
-| :---: | :--- | :--- |
-| ⬜ | **Environment Setup** | Setup Python 3.10+, virtual environments, and `.gitignore`. |
-| ⬜ | **Makefile Creation** | Implement `install`, `run`, `debug`, `clean`, `lint` (flake8 + mypy), `lint-strict`. |
-| ⬜ | **Architecture Design** | Draft the OOP class structure (Game Engine, Entities, UI). |
-
-### Phase 2: Core Mechanics
-| Status | Task | Description |
-| :---: | :--- | :--- |
-| ⬜ | **Config Parser** | Read JSON files with comments, handle missing/invalid values gracefully (no traceback). |
-| ⬜ | **Maze Integration** | Integrate the assigned `A-Maze-ing` package (Seed 42 for lvl 1, PERFECT=False). |
-| ⬜ | **Entities Logic** | Implement Player (movement, lives) and Ghosts (chase/flee AI, respawn). |
-| ⬜ | **Items & Scoring** | Add Pacgums (score X), Super-pacgums (score Y, invincibility), and ghost eating (score Z). |
-
-### Phase 3: Game Flow & UI
-| Status | Task | Description |
-| :---: | :--- | :--- |
-| ⬜ | **Game Loop** | Manage levels, time limits (e.g., 90s), winning/losing conditions, and pause functionality. |
-| ⬜ | **User Interface** | Build Main Menu, In-Game HUD, Pause Menu, Game Over, and Victory screens. |
-| ⬜ | **Highscore System** | Save/load top 10 scores persistently. Prompt for name (max 10 chars) at game end. |
-
-### Phase 4: Polish & Deployment
-| Status | Task | Description |
-| :---: | :--- | :--- |
-| ⬜ | **Cheat Mode** | Add invincibility, level skip, ghost freeze, extra lives, and speed boost for peer review. |
-| ⬜ | **Packaging** | Create a functional package for deployment on Steam/Itch.io (unlisted/private). |
-| ⬜ | **Documentation** | Finalize project management docs (Gantt, risk analysis) and README. |
+## V. Highscore System
+The system maintains a persistent record of the **Top 10** scores:
+* **Storage**: Data is saved to a JSON file on disk, ensuring persistence between sessions.
+* **Robustness**: The system handles missing or corrupted files gracefully.
+* **User Input**: Players can enter alphanumeric names (max 10 characters) upon winning or losing.
+* **Display**: Highscores are displayed in the main menu for competitive visibility.
 
 ---
 
-## 🛑 Technical Rules & Requirements
+## VI. Maze Generation
+This project integrates an external **A-Maze-ing** package:
+* **Interface**: Our loader adapts to the external package's specific API without modification.
+* **Pac-Man Style**: The `PERFECT` parameter is set to `False` to ensure corridors are suitable for the game (allowing loops).
+* **Structure**: The first level uses a fixed seed (`42`), while subsequent levels are randomized.
+* **Layout**: Pacgums fill corridors, Super-pacgums occupy the 4 corners, and the player starts in the center.
 
-* **Language:** Python 3.10 or later.
-* **Typing & Linting:** * Code MUST adhere to `flake8` standards.
-  * Strict type hinting is mandatory. `mypy` must pass without errors.
-* **Documentation:** All functions and classes require PEP 257 compliant docstrings (Google or NumPy style).
-* **Error Handling:** **NO CRASHES.** Exceptions must be handled gracefully. A Python traceback during evaluation means an automatic fail. Context managers (`with`) must be used for resource handling.
-* **AI Policy:** AI can be used for drafting and brainstorming, but you must fully understand and be able to explain every line of code during peer review. 
-
----
-
-## 🚀 Instructions & Usage
-
-### Make Commands
-Use the provided `Makefile` to manage the project:
-* `make install`: Installs project dependencies.
-* `make run`: Executes the game.
-* `make debug`: Runs the game in debug mode (e.g., via pdb).
-* `make clean`: Removes temporary files (pycache, mypy_cache).
-* `make lint`: Runs `flake8` and `mypy` with required flags.
-* `make lint-strict`: Runs strictly configured linting.
-
-### Running the Game
-Launch the game via the command line, providing a configuration file:
-> python3 pac-man.py config.json
-
-*Note: The program requires exactly one argument. If the config is faulty, the game will load safe default values and log a clear warning message rather than crashing.*
 
 ---
 
-## ⚙️ Configuration
-The game relies on a `.json` configuration file that supports comments (lines starting with `#`). 
+## VII. Implementation & Game Logic
 
-**Default Configuration Fallbacks:**
-* `highscore_filename`: "highscores.json"
-* `lives`: 3
-* `points_per_pacgum`: 10
-* `points_per_super_pacgum`: 50
-* `points_per_ghost`: 200
-* `seed`: 42
-* `level_max_time`: 90
+### Player Mechanics
+* **Movement**: Controlled via arrow keys or WASD through corridors.
+* **Progression**: Eating all pacgums completes a level; completing all 10+ levels wins the game.
+* **Interactions**: Touching a ghost loses a life and triggers a respawn at the center.
 
-If an unknown key is provided, it is ignored. If a value is missing or corrupted, the game clamps to these safe defaults.
+### Ghost AI (Implemented by thsykas)
+* **States**: Ghosts alternate between "Chase" (approaching the player) and "Flee" (running away when player eats a Super-pacgum).
+* **Respawn**: Eaten ghosts return to their corners and respawn after 5-10 seconds.
 
----
-
-## 🧩 Maze Generation
-This project relies on an external `A-Maze-ing` package assigned by another peer group. 
-* **Integration:** Used strictly as-is without internal modification.
-* **Logic:** Level 1 uses a fixed seed (e.g., 42). Subsequent levels are fully randomized.
-* **Pac-Man Parameters:** The `PERFECT` parameter is set to `False` to ensure interconnected corridors suitable for Pac-Man gameplay.
+### Cheat Mode
+To facilitate peer review, a cheat mode is available:
+* **Invincibility**: Player cannot be killed by ghosts.
+* **Level Skip**: Instantly advance to the next level.
+* **Ghost Freeze**: Stops all autonomous ghost movement.
 
 ---
 
-## 🏆 Highscores
-The highscore system is persistent and robust:
-* **Storage:** Saved locally as a JSON file.
-* **Data:** Maintains the Top 10 players. Limits names to 10 alphanumeric characters.
-* **Flow:** Loaded at game startup and displayed in the Main Menu. Saves automatically when a player enters their name upon Victory or Game Over.
+## VIII. General Software Architecture
+The project follows an Object-Oriented approach using a modular structure:
+* **`Core`**: Manages the main game loop, level transitions, and the 90s timer.
+* **`Entities`**: Contains classes for the `Player` and `Ghost` (Blinky, Pinky, Inky, Clyde logic).
+* **`UI/Graphics`**: Handles the MLX-based rendering for the HUD, Main Menu, and Game Over screens.
+* **`Config/IO`**: Manages JSON parsing and highscore persistence.
 
 ---
-
-## 🏗️ Implementation & Architecture
-
-### Technical Summary
-The game is built using a modular Object-Oriented approach. Pygame/MLX handles the display and event loops, while the game logic is decoupled into independent managers (StateManager, CollisionManager, EntityController).
-
-### General Software Architecture
-1. **Core Engine:** Handles the main game loop, delta time, and input broadcasting.
-2. **Entity Module:** Contains the `Player` class and the `Ghost` base class (with specific AI behaviors extending it).
-3. **World Module:** Wraps the `A-Maze-ing` package, manages the grid, wall collisions, and item placements (Pacgums/Super-pacgums).
-4. **UI Module:** Manages view states (Menu, Playing, Paused, GameOver).
-
----
-
-## 📂 Project Management
-We utilize a structured Kanban/Agile approach to track progress. 
-All management evidence (Gantt charts, risk analysis, task delegation, and acceptance testing plans) can be found in the dedicated `/project_management` directory within this repository. 
-
----
-
-## 🧠 Resources & AI Usage
-* **References:** * [Python 3.10 Documentation](https://docs.python.org/3/)
-  * [PEP 257 Docstring Conventions](https://peps.python.org/pep-0257/)
-  * [The Pac-Man Dossier (Ghost AI behaviors)](https://pacman.holenet.info/)
-* **AI Usage:** * *ChatGPT / Claude:* Used for generating boilerplate code structure, reviewing Regex for the config parser, and generating this README documentation. All code was heavily refactored, peer-reviewed, and thoroughly tested to ensure complete comprehension.
-
-https://github.com/TG922/pacman-game-assets
