@@ -108,3 +108,21 @@ The project follows an Object-Oriented approach using a modular structure:
 * **`Config/IO`**: Manages JSON parsing and highscore persistence.
 
 ---
+
+
+## IX. Project Management
+
+### Team Roles
+* **kkraft**: Primary focus on **visual assets**, UI design, and graphical rendering logic. []Responsible for the "look and feel" of the menus and the in-game HUD[cite: 108, 258].
+* []**thsykas**: Responsible for **core algorithms**, specifically the ghost AI behaviors, the persistent highscore system, and workload distribution/management documentation[cite: 10, 158].
+
+### Methodology
+We utilized a dedicated subdirectory (`/management`) containing:
+* **Gantt Chart**: Timeline of development phases.
+* **Risk Analysis**: Mitigation strategies for unhandled exceptions and generator failures.
+* **Acceptance Test Plan**: A log of features tested and bugs resolved (e.g., ghost movement through walls).
+
+---
+
+## X. Submission & Review
+This project is prepared for deployment on public platforms (Itch.io/Steam) as a private build. During peer review, the code must pass `mypy` without errors and handle any requested "recode" modifications within minutes to verify understanding.
