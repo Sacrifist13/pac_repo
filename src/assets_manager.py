@@ -1,6 +1,6 @@
 import pygame
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Union, Optional
 
 
 class AssetsManager:
@@ -18,7 +18,7 @@ class AssetsManager:
         """
         Initializes the asset containers and default audio state.
         """
-        self.img: Dict[str, pygame.Surface | pygame.surface.Surface] = {}
+        self.img: Dict[str, Union[pygame.Surface, pygame.Surface]] = {}
         self.icon: Dict[str, pygame.Surface]
         self.sound: Dict[str, Any] = {}
         self.game_img: Dict[str, Any] = {}
@@ -27,7 +27,7 @@ class AssetsManager:
         self.music_on = True
 
     def play_sound(
-        self, media: str | None, sound: Any, loop: bool, volume: float
+        self, media: Optional[str], sound: Any, loop: bool, volume: float
     ) -> None:
         """
         Plays a music file or a sound effect based on availability.

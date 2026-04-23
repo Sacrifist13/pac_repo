@@ -39,8 +39,8 @@ class HighScoreManager:
     @classmethod
     def display_score(cls, file: str,
                       screen: pygame.Surface,
-                      x_pos,
-                      y_pos,
+                      x_pos: int,
+                      y_pos: int,
                       asset_font: AssetsManager) -> None:
         file_path = Path(file)
         display_score = {}

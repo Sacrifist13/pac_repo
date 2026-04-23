@@ -673,9 +673,9 @@ class GameEngine:
                         if blinky:
                             ghost.move(
                                 self.map,
-                                self.pac_man.direction,
                                 self.pac_man.grid_x,
                                 self.pac_man.grid_y,
+                                self.pac_man.direction,
                                 blinky.grid_x,
                                 blinky.grid_y,
                             )
@@ -692,9 +692,9 @@ class GameEngine:
                     ):
                         ghost.move(
                             self.map,
-                            self.pac_man.direction,
                             self.pac_man.grid_x,
                             self.pac_man.grid_y,
+                            self.pac_man.direction,
                         )
                     # Rajouter un if pac_man.mode == Mode.INVINCIBLE
                 elif ghost.mode == Mode.EAT:

@@ -1,7 +1,7 @@
 import pygame
 import random
 import heapq
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Optional
 from abc import ABC, abstractmethod
 from .enums_class import Directions, PlayingState, Mode
 
@@ -56,8 +56,8 @@ class Entity(ABC):
         self.img = img
 
         self.speed = speed
-        self.direction: Directions | None = None
-        self.next_direction: Directions | None = None
+        self.direction: Optional[Directions] = None
+        self.next_direction: Optional[Directions] = None
 
         self.moving = False
         self.j = 0
@@ -148,7 +148,7 @@ class Ghost(Entity, ABC):
         super().__init__(name, grid_x, grid_y, speed, cell_size, img)
         self.scared_img = scared_img
         self.eaten_img = eaten_img
-        self.path_to_start: List[Tuple[int, int]] | None = None
+        self.path_to_start: Optional[List[Tuple[int, int]]] = None
 
     def _calculate_f(
         self, target_grid_x: int, target_grid_y: int, x: int, y: int, g: int
@@ -447,7 +447,12 @@ class Ghost(Entity, ABC):
         surface.blit(current_img, (px, py))
 
     def move(
-        self, map: List[List[List[int]]], pac_grid_x: int, pac_grid_y: int
+        self, map: List[List[List[int]]],
+        pac_grid_x: int,
+        pac_grid_y: int,
+        pacman_dir: Optional[Directions] = None,
+        blinky_pos_x: Optional[int] = None,
+        blinky_pos_y: Optional[int] = None
     ) -> None:
         pass
 
@@ -480,10 +485,15 @@ class Blinky(Ghost):
         super().__init__(
             name, grid_x, grid_y, speed, cell_size, img, scared_img, eaten_img
         )
-        self.path_to_pac_man: List[Tuple[int, int]] | None = None
+        self.path_to_pac_man: Optional[List[Tuple[int, int]]] = None
 
     def move(
-        self, map: List[List[List[int]]], pac_grid_x: int, pac_grid_y: int
+        self, map: List[List[List[int]]],
+        pac_grid_x: int,
+        pac_grid_y: int,
+        pacman_dir: Optional[Directions] = None,
+        blinky_pos_x: Optional[int] = None,
+        blinky_pos_y: Optional[int] = None,
     ) -> None:
         """
         Calculates and executes Blinky's aggressive pursuit logic.
@@ -552,7 +562,12 @@ class Clyde(Ghost):
         )
 
     def move(
-        self, map: List[List[List[int]]], pac_grid_x: int, pac_grid_y: int
+        self, map: List[List[List[int]]],
+        pac_grid_x: int,
+        pac_grid_y: int,
+        pacman_dir: Optional[Directions] = None,
+        blinky_pos_x: Optional[int] = None,
+        blinky_pos_y: Optional[int] = None,
     ) -> None:
         self.move_random(map)
 
@@ -572,16 +587,18 @@ class Inky(Ghost):
         super().__init__(
             name, grid_x, grid_y, speed, cell_size, img, scared_img, eaten_img
         )
-        self.path_to_pac_man: List[Tuple[int, int]] | None = None
+        self.path_to_pac_man: Optional[List[Tuple[int, int]]] = None
 
     def move(
         self, map: List[List[List[int]]],
-        pacman_dir: Directions,
         pac_grid_x: int,
         pac_grid_y: int,
-        blinky_pos_x: int,
-        blinky_pos_y: int,
+        pacman_dir: Optional[Directions] = None,
+        blinky_pos_x: Optional[int] = None,
+        blinky_pos_y: Optional[int] = None,
     ) -> None:
+        if pacman_dir is None or blinky_pos_x is None or blinky_pos_y is None:
+            return
         if self.path_to_pac_man is None:
             pac_ref_x, pac_ref_y = pac_grid_x, pac_grid_y
             if pacman_dir == Directions.UP:
@@ -660,13 +677,15 @@ class Pinky(Ghost):
         super().__init__(
             name, grid_x, grid_y, speed, cell_size, img, scared_img, eaten_img
         )
-        self.path_to_pac_man: List[Tuple[int, int]] | None = None
+        self.path_to_pac_man: Optional[List[Tuple[int, int]]] = None
 
     def move(
         self, map: List[List[List[int]]],
-        pacman_dir: Directions,
         pac_grid_x: int,
-        pac_grid_y: int
+        pac_grid_y: int,
+        pacman_dir: Optional[Directions] = None,
+        blinky_pos_x: Optional[int] = None,
+        blinky_pos_y: Optional[int] = None
     ) -> None:
         if self.path_to_pac_man is None:
             pac_ref_x, pac_ref_y = pac_grid_x, pac_grid_y
@@ -864,7 +883,7 @@ class PacMan(Entity):
         heading, and handles visual blinking effects when Pac-Man is
         in INVINCIBLE mode.
         """
-        current_img: pygame.Surface | pygame.surface.Surface = self.img[
+        current_img = self.img[
             "pac_2"
         ]
 
