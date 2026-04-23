@@ -263,10 +263,13 @@ class Ghost(Entity):
         }
 
         if self.pixel_x == self.target_x and self.pixel_y == self.target_y:
+            if not self.path_to_start:
+                self.path_to_start = None
+                return True
             ny, nx = self.path_to_start.pop()
             d = (ny - self.grid_y, nx - self.grid_x)
 
-            self.direction = directions[d]
+            self.direction = directions.get(d, self.direction)
             self.grid_x = nx
             self.grid_y = ny
             self.target_x = self.grid_x * self.cell_size
@@ -274,21 +277,13 @@ class Ghost(Entity):
 
         else:
             if self.pixel_x < self.target_x:
-                self.pixel_x = min(
-                    self.pixel_x + (self.speed * 2), self.target_x
-                )
+                self.pixel_x = min(self.pixel_x + self.speed, self.target_x)
             elif self.pixel_x > self.target_x:
-                self.pixel_x = max(
-                    self.pixel_x - (self.speed * 2), self.target_x
-                )
+                self.pixel_x = max(self.pixel_x - self.speed, self.target_x)
             elif self.pixel_y < self.target_y:
-                self.pixel_y = min(
-                    self.pixel_y + (self.speed * 2), self.target_y
-                )
+                self.pixel_y = min(self.pixel_y + self.speed, self.target_y)
             elif self.pixel_y > self.target_y:
-                self.pixel_y = max(
-                    self.pixel_y - (self.speed * 2), self.target_y
-                )
+                self.pixel_y = max(self.pixel_y - self.speed, self.target_y)
         return False
 
     def move_random(self, map: List[List[List[int]]]) -> None:
@@ -512,7 +507,9 @@ class Blinky(Ghost):
             }
 
             dy, dx = y - self.grid_y, x - self.grid_x
-            self.direction = directions[(dy, dx)]
+
+            if (dy, dx) in directions:
+                self.direction = directions[(dy, dx)]
 
         if self.pixel_x == self.target_x and self.pixel_y == self.target_y:
             self.path_to_pac_man = None
@@ -594,33 +591,35 @@ class Inky(Ghost):
             target_inx = blinky_pos_x + (vector_x * 2)
             target_iny = blinky_pos_y + (vector_y * 2)
 
-            map_widht = len(map)
-            map_height = len(map[0])
-            target_inx = max(0, min(target_inx, map_height - 1))
-            target_iny = max(0, min(target_iny, map_widht - 1))
+            map_height = len(map)
+            map_width = len(map[0])
+            target_inx = max(0, min(target_inx, map_width - 1))
+            target_iny = max(0, min(target_iny, map_height - 1))
             self.path_to_pac_man = self._find_fastest_way_to(
                 map, target_inx, target_iny
             )
 
-        if not self.path_to_pac_man:
-            return
+            if not self.path_to_pac_man:
+                return
 
-        y, x = self.path_to_pac_man[-1][0], self.path_to_pac_man[-1][1]
+            y, x = self.path_to_pac_man[-1][0], self.path_to_pac_man[-1][1]
 
-        self.target_y, self.target_x = (
-            y * self.cell_size,
-            x * self.cell_size,
-        )
+            self.target_y, self.target_x = (
+                y * self.cell_size,
+                x * self.cell_size,
+            )
 
-        directions = {
-            (-1, 0): Directions.UP,
-            (1, 0): Directions.DOWN,
-            (0, 1): Directions.RIGHT,
-            (0, -1): Directions.LEFT,
-        }
+            directions = {
+                (-1, 0): Directions.UP,
+                (1, 0): Directions.DOWN,
+                (0, 1): Directions.RIGHT,
+                (0, -1): Directions.LEFT,
+            }
 
-        dy, dx = y - self.grid_y, x - self.grid_x
-        self.direction = directions[(dy, dx)]
+            dy, dx = y - self.grid_y, x - self.grid_x
+
+            if (dy, dx) in directions:
+                self.direction = directions[(dy, dx)]
 
         if self.pixel_x == self.target_x and self.pixel_y == self.target_y:
             self.path_to_pac_man = None
@@ -673,33 +672,35 @@ class Pinky(Ghost):
             elif pacman_dir == Directions.RIGHT:
                 pac_ref_x += 4
 
-            map_width = len(map)
-            map_height = len(map[0])
-            target_pix = max(0, min(pac_ref_x, map_height - 1))
-            target_piy = max(0, min(pac_ref_y, map_width - 1))
+            map_height = len(map)
+            map_width = len(map[0])
+            target_pix = max(0, min(pac_ref_x, map_width - 1))
+            target_piy = max(0, min(pac_ref_y, map_height - 1))
             self.path_to_pac_man = self._find_fastest_way_to(
                 map, target_pix, target_piy
             )
 
-        if not self.path_to_pac_man:
-            return
+            if not self.path_to_pac_man:
+                return
 
-        y, x = self.path_to_pac_man[-1][0], self.path_to_pac_man[-1][1]
+            y, x = self.path_to_pac_man[-1][0], self.path_to_pac_man[-1][1]
 
-        self.target_y, self.target_x = (
-            y * self.cell_size,
-            x * self.cell_size,
-        )
+            self.target_y, self.target_x = (
+                y * self.cell_size,
+                x * self.cell_size,
+            )
 
-        directions = {
-            (-1, 0): Directions.UP,
-            (1, 0): Directions.DOWN,
-            (0, 1): Directions.RIGHT,
-            (0, -1): Directions.LEFT,
-        }
+            directions = {
+                (-1, 0): Directions.UP,
+                (1, 0): Directions.DOWN,
+                (0, 1): Directions.RIGHT,
+                (0, -1): Directions.LEFT,
+            }
 
-        dy, dx = y - self.grid_y, x - self.grid_x
-        self.direction = directions[(dy, dx)]
+            dy, dx = y - self.grid_y, x - self.grid_x
+
+            if (dy, dx) in directions:
+                self.direction = directions[(dy, dx)]
 
         if self.pixel_x == self.target_x and self.pixel_y == self.target_y:
             self.path_to_pac_man = None

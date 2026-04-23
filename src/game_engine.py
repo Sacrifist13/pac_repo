@@ -667,14 +667,17 @@ class GameEngine:
                     elif ghost.name == "clyde":
                         ghost.move_random(self.map)
                     elif ghost.name == "inky" and isinstance(ghost, Inky):
-                        ghost.move(
-                            self.map,
-                            self.pac_man.grid_x,
-                            self.pac_man.grid_y,
-                            self.pac_man.direction,
-                            self.ghosts["blinky"].grid_x,
-                            self.ghosts["blinky"].grid_y,
-                        )
+                        if self.ghosts["blinky"].mode == Mode.EAT:
+                            ghost.move_random(self.map)
+                        else:
+                            ghost.move(
+                                self.map,
+                                self.pac_man.grid_x,
+                                self.pac_man.grid_y,
+                                self.pac_man.direction,
+                                self.ghosts["blinky"].grid_x,
+                                self.ghosts["blinky"].grid_y,
+                            )
                     elif ghost.name == "pinky" and isinstance(ghost, Pinky):
                         ghost.move(
                             self.map,
@@ -809,6 +812,14 @@ class GameEngine:
                     self.death_time = current_time
                     self.lives -= 1
                     self.pac_man.mode = Mode.INVINCIBLE
+                    ghost.grid_x = int(
+                        ghost.target_x // self.pac_man.cell_size
+                    )
+                    ghost.grid_y = int(
+                        ghost.target_y // self.pac_man.cell_size
+                    )
+                    ghost.pixel_x = ghost.target_x
+                    ghost.pixel_y = ghost.target_y
 
                 elif ghost.mode == Mode.SCARED:
                     self.assets_manager.play_sound(
@@ -818,7 +829,7 @@ class GameEngine:
                         0.5,
                     )
                     ghost.mode = Mode.EAT
-                    ghost.speed = 2
+                    ghost.speed = 4
                     self.score_eating = self.config.points_per_ghost * (
                         1 + self.ghosts_eat
                     )
@@ -829,6 +840,14 @@ class GameEngine:
                         ghost.pixel_y,
                         ghost.pixel_x,
                     )
+                    ghost.grid_x = int(
+                        ghost.target_x // self.pac_man.cell_size
+                    )
+                    ghost.grid_y = int(
+                        ghost.target_y // self.pac_man.cell_size
+                    )
+                    ghost.pixel_x = ghost.target_x
+                    ghost.pixel_y = ghost.target_y
 
     def _load_pause_info(self) -> None:
         """
@@ -1155,6 +1174,11 @@ class GameEngine:
 
         if self.death_time + 1200 <= current_time:
             self.pac_man.reset_pos()
+
+            for ghost in self.ghosts.values():
+                if ghost.mode == Mode.EAT:
+                    ghost.path_to_start = None
+
             self.playing_state = PlayingState.RETREATE
             if self.speed_cheat:
                 self.pac_man.speed = 4
@@ -1616,6 +1640,14 @@ class GameEngine:
                                 ghost.speed = 2
                             else:
                                 ghost.speed = 0
+                            ghost.grid_x = int(
+                                ghost.target_x // self.pac_man.cell_size
+                            )
+                            ghost.grid_y = int(
+                                ghost.target_y // self.pac_man.cell_size
+                            )
+                            ghost.pixel_x = ghost.target_x
+                            ghost.pixel_y = ghost.target_y
             else:
                 pygame.mixer.music.stop()
 
@@ -1647,6 +1679,14 @@ class GameEngine:
                         ghost.mode = Mode.SCARED
                         if not self.freeze_cheat:
                             ghost.speed = 1
+                        ghost.grid_x = int(
+                            ghost.target_x // self.pac_man.cell_size
+                        )
+                        ghost.grid_y = int(
+                            ghost.target_y // self.pac_man.cell_size
+                        )
+                        ghost.pixel_x = ghost.target_x
+                        ghost.pixel_y = ghost.target_y
 
             if not self.pac_gums_coord:
                 self.playing_state = PlayingState.LEVEL_PASS
