@@ -61,6 +61,9 @@ class MapGenerator:
         if level == 1:
             config += "SEED=42\n"
 
+        for key in ["HEIGHT", "WIDTH", "ENTRY", "EXIT", "PERFECT", "SEED", "OUTPUT_FILE"]:
+            os.environ.pop(key, None)
+
         try:
             with open("level.txt", "w") as f:
                 f.write(config)
