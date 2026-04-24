@@ -90,6 +90,8 @@ class HighScoreManager:
         except json.JSONDecodeError:
             print("Error json file don't exist")
             return
+        except Exception:
+            return
 
         font_style = asset_font.f_basic
         for i, (id, score) in enumerate(display_score.items()):
