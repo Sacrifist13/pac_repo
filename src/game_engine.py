@@ -2522,7 +2522,7 @@ class GameEngine:
                         else:
                             self.speed_cheat = False
                             self.pac_man.speed //= 2
-                    elif event.key == pygame.K_p:
+                    elif event.key == pygame.K_p and self.playing_state != PlayingState.DEATH:
                         self.playing_state = PlayingState.POWER
                         self.music_load = False
                         self.power_time = pygame.time.get_ticks()
@@ -2699,6 +2699,8 @@ class GameEngine:
                     ghost.speed = 2
 
                 self.level_pass_animation = False
+                self.speed_cheat = False
+                self.freeze_cheat = False
                 self.state = GameState.PLAYING
                 self.playing_state = PlayingState.RETREATE
                 self.pac_man.set_direction(Directions.UP)
