@@ -1,0 +1,26 @@
+=========================================
+           PAC-MAN - INSTRUCTIONS
+=========================================
+
+## GAME RULES
+* Objective: Eat all pacgums to win the level.
+* Victory: Complete all 10 levels to win the game.
+* Lives: You lose a life if touched by a ghost.
+* Power-up: Super-pacgums make ghosts edible for a short time.
+* Time: You have a time limit per level.
+
+## BASIC COMMANDS
+* Up Arrow (↑)    : Move up
+* Down Arrow (↓)  : Move down
+* Left Arrow (←)  : Move left
+* Right Arrow (→) : Move right
+* Space           : Pause or resume at any time
+
+## CHEAT COMMANDS
+* S : Speed * 2 (Multiplier x2)
+* F : Freeze ghosts
+* L : Level skip
+* P : Instant power (Super-pacgum)
+
+## OPTIONS AND CONFIGURATION
+* To modify the game settings (starting lives, time limit per level, etc.), please edit the values inside the `config.json` file.

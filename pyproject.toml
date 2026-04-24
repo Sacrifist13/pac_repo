@@ -14,5 +14,10 @@ dependencies = [
 [tool.uv.sources]
 mazegen = { path = "mazegen-0.1.0-py3-none-any.whl" }
 
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.20.0",
+]
+
 
 

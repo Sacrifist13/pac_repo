@@ -1,6 +1,20 @@
+import os
+import sys
 import pygame
 from pathlib import Path
 from typing import Dict, Any, Union, Optional
+
+
+def get_resource_path(*paths: str) -> str:
+    """
+    Resolve absolute path for dev and PyInstaller.
+    """
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, *paths)
 
 
 class AssetsManager:
@@ -47,12 +61,14 @@ class AssetsManager:
             volume = 0.5
 
         if media:
+            media_path = get_resource_path(media)
+
             if loop:
-                pygame.mixer.music.load(media)
+                pygame.mixer.music.load(media_path)
                 pygame.mixer.music.set_volume(volume)
                 pygame.mixer.music.play(-1)
             else:
-                pygame.mixer.music.load(media)
+                pygame.mixer.music.load(media_path)
                 pygame.mixer.music.set_volume(volume)
                 pygame.mixer.music.play(1)
         else:
@@ -67,7 +83,7 @@ class AssetsManager:
         searching for supported file formats. It also initializes the
         various font objects used for menus, gameplay HUD, and countdowns.
         """
-        assets_dir = Path("assets")
+        assets_dir = Path(get_resource_path("assets"))
 
         for img in assets_dir.rglob("*.png"):
             img_name = img.name.split(".")[0]
@@ -84,25 +100,36 @@ class AssetsManager:
             self.sound[sound_name] = pygame.mixer.Sound(sound)
 
         font_size = 40
-        self.f_back = pygame.font.Font("assets/font/back.otf", font_size)
-        self.f_front = pygame.font.Font("assets/font/front.otf", font_size)
+        self.f_back = pygame.font.Font(
+            get_resource_path("assets", "font", "back.otf"), font_size
+        )
+        self.f_front = pygame.font.Font(
+            get_resource_path("assets", "font", "front.otf"), font_size
+        )
 
         self.f_back_over = pygame.font.Font(
-            "assets/font/back.otf", int(font_size / 1.5)
+            get_resource_path("assets", "font", "back.otf"),
+            int(font_size / 1.5),
         )
         self.f_front_over = pygame.font.Font(
-            "assets/font/front.otf", int(font_size / 1.5)
+            get_resource_path("assets", "font", "front.otf"),
+            int(font_size / 1.5),
         )
 
         self.f_back_countdown = pygame.font.Font(
-            "assets/font/back.otf", font_size * 3
+            get_resource_path("assets", "font", "back.otf"), font_size * 3
         )
         self.f_front_countdown = pygame.font.Font(
-            "assets/font/front.otf", font_size * 3
+            get_resource_path("assets", "font", "front.otf"),
+            font_size * 3,
         )
 
-        self.f_basic = pygame.font.Font("assets/font/basic.ttf", 14)
-        self.f_basic_s = pygame.font.Font("assets/font/basic.ttf", 11)
+        self.f_basic = pygame.font.Font(
+            get_resource_path("assets", "font", "basic.ttf"), 14
+        )
+        self.f_basic_s = pygame.font.Font(
+            get_resource_path("assets", "font", "basic.ttf"), 11
+        )
 
     def load_game_img(self, cell_size: int) -> None:
         """
