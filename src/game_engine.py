@@ -2119,15 +2119,12 @@ class GameEngine:
         self.virtual_screen.blit(title_text_1, coord)
         self.virtual_screen.blit(title_text_2, coord)
 
-        x_start = self.WIDTH // 2
-        y_start = self.WIDTH // 2
-        HighScoreManager.display_score(
-            self.config.highscore_filename,
-            self.virtual_screen,
-            x_start,
-            y_start,
-            self.assets_manager,
+        highscore_report = HighScoreManager.get_highscore_report(
+            self.config.highscore_filename
         )
+
+        print(highscore_report)
+
         back_text_1 = self.assets_manager.f_back_over.render(
             "Back", True, self.GRAY
         )
@@ -2522,7 +2519,10 @@ class GameEngine:
                         else:
                             self.speed_cheat = False
                             self.pac_man.speed //= 2
-                    elif event.key == pygame.K_p and self.playing_state != PlayingState.DEATH:
+                    elif (
+                        event.key == pygame.K_p
+                        and self.playing_state != PlayingState.DEATH
+                    ):
                         self.playing_state = PlayingState.POWER
                         self.music_load = False
                         self.power_time = pygame.time.get_ticks()
