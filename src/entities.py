@@ -149,6 +149,7 @@ class Ghost(Entity):
         self.scared_img = scared_img
         self.eaten_img = eaten_img
         self.path_to_start: Optional[List[Tuple[int, int]]] = None
+        self.previous_mode = Mode.NORMAL
 
     def _calculate_f(
         self, target_grid_x: int, target_grid_y: int, x: int, y: int, g: int

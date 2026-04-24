@@ -85,6 +85,7 @@ class HighScoreManager:
                     key: value
                     for key, value in new_scores_report.items()
                     if str(key).isalnum and value > 0
+                    if len(key) <= 10
                 }
         except Exception:
             return {}

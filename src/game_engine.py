@@ -2119,11 +2119,105 @@ class GameEngine:
         self.virtual_screen.blit(title_text_1, coord)
         self.virtual_screen.blit(title_text_2, coord)
 
+        rank_text_1 = self.assets_manager.f_back_over.render(
+            "RANK", True, self.NEON_PURPLE
+        )
+        rank_text_2 = self.assets_manager.f_front_over.render(
+            "RANK", True, self.NEON_PINK
+        )
+
+        player_text_1 = self.assets_manager.f_back_over.render(
+            "PLAYER", True, self.NEON_PURPLE
+        )
+        player_text_2 = self.assets_manager.f_front_over.render(
+            "PLAYER", True, self.NEON_PINK
+        )
+
+        score_text_1 = self.assets_manager.f_back_over.render(
+            "SCORE", True, self.NEON_PURPLE
+        )
+        score_text_2 = self.assets_manager.f_front_over.render(
+            "SCORE", True, self.NEON_PINK
+        )
+
+        total_width = (
+            rank_text_1.get_width()
+            + player_text_1.get_width()
+            + score_text_1.get_width()
+            + 200
+        )
+
+        rank_text_x = (self.WIDTH - total_width) // 2
+        player_text_x = rank_text_x + rank_text_1.get_width() + 100
+        score_text_x = player_text_x + player_text_1.get_width() + 100
+
+        text_height = rank_text_1.get_height()
+
+        text_y = title_text_1.get_height() + 20 + 40
+
+        self.virtual_screen.blit(rank_text_1, (rank_text_x, text_y))
+        self.virtual_screen.blit(rank_text_2, (rank_text_x, text_y))
+        self.virtual_screen.blit(player_text_1, (player_text_x, text_y))
+        self.virtual_screen.blit(player_text_2, (player_text_x, text_y))
+        self.virtual_screen.blit(score_text_1, (score_text_x, text_y))
+        self.virtual_screen.blit(score_text_2, (score_text_x, text_y))
+
+        pygame.draw.line(
+            self.virtual_screen,
+            self.NEON_PURPLE,
+            (rank_text_x, text_y + text_height + 20),
+            (
+                score_text_x + score_text_1.get_width(),
+                text_y + text_height + 20,
+            ),
+            2,
+        )
+
+        text_y += text_height + 60
+
         highscore_report = HighScoreManager.get_highscore_report(
             self.config.highscore_filename
         )
 
-        print(highscore_report)
+        if not highscore_report:
+            pass
+
+        rank = 1
+
+        color = {1: self.PACMAN_YELLOW, 2: self.NEON_PINK, 3: self.NEON_PURPLE}
+
+        for key, value in highscore_report.items():
+            c_rank = color[rank] if rank in color else self.GRAY
+
+            rank_text = self.assets_manager.f_basic.render(
+                str(rank), True, c_rank
+            )
+            player_text = self.assets_manager.f_basic.render(
+                str(key),
+                True,
+                c_rank,
+            )
+            score_text = self.assets_manager.f_basic.render(
+                str(value),
+                True,
+                c_rank,
+            )
+
+            rank_x, player_x, score_x = (
+                rank_text_x
+                + (rank_text_1.get_width() - rank_text.get_width()) // 2,
+                player_text_x
+                + (player_text_1.get_width() - player_text.get_width()) // 2,
+                score_text_x
+                + (score_text_1.get_width() - score_text.get_width()) // 2,
+            )
+
+            self.virtual_screen.blit(rank_text, (rank_x, text_y))
+            self.virtual_screen.blit(player_text, (player_x, text_y))
+            self.virtual_screen.blit(score_text, (score_x, text_y))
+
+            text_y += rank_text.get_height() + 40
+            rank += 1
 
         back_text_1 = self.assets_manager.f_back_over.render(
             "Back", True, self.GRAY
