@@ -13,6 +13,7 @@ class MapGenerator:
     with value 15 are tracked separately as logo coordinates used to
     position entities on the map.
     """
+
     def __init__(self, width: int = 13, height: int = 13) -> None:
         """
         Initializes the MapGenerator with base grid dimensions.
@@ -61,7 +62,15 @@ class MapGenerator:
         if level == 1:
             config += "SEED=42\n"
 
-        for key in ["HEIGHT", "WIDTH", "ENTRY", "EXIT", "PERFECT", "SEED", "OUTPUT_FILE"]:
+        for key in [
+            "HEIGHT",
+            "WIDTH",
+            "ENTRY",
+            "EXIT",
+            "PERFECT",
+            "SEED",
+            "OUTPUT_FILE",
+        ]:
             os.environ.pop(key, None)
 
         try:
