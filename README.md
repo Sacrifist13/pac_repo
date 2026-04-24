@@ -62,7 +62,7 @@ The game is highly customizable via a JSON configuration file. Unknown keys are 
 
 ---
 
-## V. Highscore System
+## V. Highscore
 The system maintains a persistent record of the **Top 10** scores:
 * **Storage**: Data is saved to a JSON file on disk, ensuring persistence between sessions.
 * **Robustness**: The system handles missing or corrupted files gracefully.
@@ -81,7 +81,7 @@ This project integrates an external **A-Maze-ing** package:
 
 ---
 
-## VII. Implementation & Game Logic
+## VII. Implementation
 
 ### Player Mechanics
 * **Movement**: Controlled via arrow keys or WASD through corridors.

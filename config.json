@@ -10,8 +10,7 @@
   # Attribution des points
   "points_per_pacgum": 10,
   "points_per_super_pacgum": 50,
-  "points_per_ghost": 200,
+  "points_per_ghost": 200
 
-  "width" : 4587
   # Liste des niveaux (au moins 10 niveaux requis)
 }

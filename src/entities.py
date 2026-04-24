@@ -539,12 +539,29 @@ class Clyde(Ghost):
         scared_img: List[pygame.Surface],
         eaten_img: Dict[str, pygame.Surface],
     ) -> None:
+        """
+        Implementation of the orange ghost, Clyde.
+
+        Clyde moves randomly through the maze, making him unpredictable
+        compared to the other ghosts. He does not actively chase Pac-Man
+        and relies solely on the inherited random movement logic.
+        """
         super().__init__(
             name, grid_x, grid_y, speed, cell_size, img, scared_img, eaten_img
         )
 
 
 class Inky(Ghost):
+    """
+    Implementation of the cyan ghost, Inky.
+
+    Inky uses a complex targeting strategy that depends on both Pac-Man's
+    current position and direction, and Blinky's current grid position.
+    He calculates a reference point two cells ahead of Pac-Man, then
+    doubles the vector from Blinky to that point to determine his target,
+    making him unpredictable and difficult to avoid.
+    """
+
     def __init__(
         self,
         name: str,
@@ -556,6 +573,19 @@ class Inky(Ghost):
         scared_img: List[pygame.Surface],
         eaten_img: Dict[str, pygame.Surface],
     ) -> None:
+        """
+        Initializes Inky with pursuit-specific tracking attributes.
+
+        Args:
+            name (str): The identifier for the ghost.
+            grid_x (int): Starting horizontal position in the grid.
+            grid_y (int): Starting vertical position in the grid.
+            speed (int): Movement speed in pixels per frame.
+            cell_size (int): Size of a single maze cell in pixels.
+            img (Dict[str, pygame.Surface]): Dictionary of ghost sprites.
+            scared_img (List[pygame.Surface]): Sprites used when vulnerable.
+            eaten_img (Dict[str, pygame.Surface]): Sprites for eaten mode.
+        """
         super().__init__(
             name, grid_x, grid_y, speed, cell_size, img, scared_img, eaten_img
         )
@@ -570,7 +600,25 @@ class Inky(Ghost):
         blinky_pos_x: Optional[int] = None,
         blinky_pos_y: Optional[int] = None,
     ) -> None:
+        """
+        Calculates and executes Inky's vector-based pursuit logic.
 
+        Computes a reference point two cells ahead of Pac-Man in his current
+        direction, then doubles the vector from Blinky's position to that
+        reference point to obtain Inky's target. The resulting target is
+        clamped to the map boundaries before pathfinding is run. Inky then
+        moves one cell at a time toward that target using the A* path.
+
+        Args:
+            map (List[List[List[int]]]): The 3D grid representing the maze.
+            pac_grid_x (int): Pac-Man's current horizontal grid coordinate.
+            pac_grid_y (int): Pac-Man's current vertical grid coordinate.
+            pacman_dir (Optional[Directions]): Pac-Man's current direction.
+            blinky_pos_x (Optional[int]): Blinky's current horizontal grid
+                coordinate.
+            blinky_pos_y (Optional[int]): Blinky's current vertical grid
+                coordinate.
+        """
         if pacman_dir is None or blinky_pos_x is None or blinky_pos_y is None:
             return
 
@@ -638,6 +686,15 @@ class Inky(Ghost):
 
 
 class Pinky(Ghost):
+    """
+    Implementation of the pink ghost, Pinky.
+
+    Pinky uses an ambush strategy by targeting a position four cells
+    ahead of Pac-Man in his current direction of movement. This allows
+    her to anticipate Pac-Man's path and cut him off rather than
+    chasing him directly, making her particularly dangerous in corridors.
+    """
+
     def __init__(
         self,
         name: str,
@@ -649,6 +706,19 @@ class Pinky(Ghost):
         scared_img: List[pygame.Surface],
         eaten_img: Dict[str, pygame.Surface],
     ) -> None:
+        """
+        Initializes Pinky with ambush-specific tracking attributes.
+
+        Args:
+            name (str): The identifier for the ghost.
+            grid_x (int): Starting horizontal position in the grid.
+            grid_y (int): Starting vertical position in the grid.
+            speed (int): Movement speed in pixels per frame.
+            cell_size (int): Size of a single maze cell in pixels.
+            img (Dict[str, pygame.Surface]): Dictionary of ghost sprites.
+            scared_img (List[pygame.Surface]): Sprites used when vulnerable.
+            eaten_img (Dict[str, pygame.Surface]): Sprites for eaten mode.
+        """
         super().__init__(
             name, grid_x, grid_y, speed, cell_size, img, scared_img, eaten_img
         )
@@ -661,6 +731,20 @@ class Pinky(Ghost):
         pac_grid_y: int,
         pacman_dir: Optional[Directions] = None,
     ) -> None:
+        """
+        Calculates and executes Pinky's ambush pursuit logic.
+
+        Computes a target four cells ahead of Pac-Man in his current
+        direction, clamped to the map boundaries, then uses A* pathfinding
+        to navigate toward that position one cell at a time.
+
+        Args:
+            map (List[List[List[int]]]): The 3D grid representing the maze.
+            pac_grid_x (int): Pac-Man's current horizontal grid coordinate.
+            pac_grid_y (int): Pac-Man's current vertical grid coordinate.
+            pacman_dir (Optional[Directions]): Pac-Man's current direction,
+                used to compute the ambush target position.
+        """
         if self.path_to_pac_man is None:
             pac_ref_x, pac_ref_y = pac_grid_x, pac_grid_y
             if pacman_dir == Directions.UP:
@@ -851,7 +935,9 @@ class PacMan(Entity):
         heading, and handles visual blinking effects when Pac-Man is
         in INVINCIBLE mode.
         """
-        current_img = self.img["pac_2"]
+        current_img: pygame.Surface | pygame.surface.Surface = self.img[
+            "pac_2"
+        ]
 
         if self.mode == Mode.INVINCIBLE:
             self.j += 1

@@ -18,8 +18,8 @@ class AssetsManager:
         """
         Initializes the asset containers and default audio state.
         """
-        self.img: Dict[str, Union[pygame.Surface, pygame.Surface]] = {}
-        self.icon: Dict[str, pygame.Surface]
+        self.img: Dict[str, Union[pygame.surface.Surface, pygame.Surface]] = {}
+        self.icon: Union[pygame.surface.Surface, pygame.Surface]
         self.sound: Dict[str, Any] = {}
         self.game_img: Dict[str, Any] = {}
         self.countdown_play = False
