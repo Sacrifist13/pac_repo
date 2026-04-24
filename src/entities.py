@@ -226,6 +226,34 @@ class Ghost(Entity):
 
         return []
 
+    def _finish_current_cell(self) -> bool:
+        """
+        Ensures the ghost completes movement to its current target cell
+        before allowing a mode or behavior change.
+
+        Returns:
+            bool: True if the ghost has reached its target cell and is
+                ready to change mode, False if it is still in transit.
+        """
+        if self.pixel_x == self.target_x and self.pixel_y == self.target_y:
+            self.previous_mode = self.mode
+            if hasattr(self, "path_to_pac_man"):
+                self.path_to_pac_man = None
+            self.grid_x = int(self.target_x // self.cell_size)
+            self.grid_y = int(self.target_y // self.cell_size)
+            return True
+
+        if self.pixel_x < self.target_x:
+            self.pixel_x = min(self.pixel_x + self.speed, self.target_x)
+        elif self.pixel_x > self.target_x:
+            self.pixel_x = max(self.pixel_x - self.speed, self.target_x)
+        elif self.pixel_y < self.target_y:
+            self.pixel_y = min(self.pixel_y + self.speed, self.target_y)
+        elif self.pixel_y > self.target_y:
+            self.pixel_y = max(self.pixel_y - self.speed, self.target_y)
+
+        return False
+
     def move_to_start_pos(self, map: List[List[List[int]]]) -> bool:
         """
         Guides the ghost back to its starting position along the fastest path.
@@ -297,7 +325,15 @@ class Ghost(Entity):
         if self.speed == 0:
             return
 
+        if self.previous_mode != self.mode:
+            if not self._finish_current_cell():
+                return
+
         if self.pixel_x == self.target_x and self.pixel_y == self.target_y:
+
+            if self.previous_mode != self.mode:
+                self.previous_mode = self.mode
+                return
             self.moving = False
 
             directions = list(Directions)
@@ -485,6 +521,10 @@ class Blinky(Ghost):
         per-frame pixel movement and coordinate updates required to
         reach that target.
         """
+        if self.previous_mode != self.mode:
+            if not self._finish_current_cell():
+                return
+
         if self.path_to_pac_man is None:
             self.path_to_pac_man = self._find_fastest_way_to(
                 map, pac_grid_x, pac_grid_y
@@ -620,6 +660,10 @@ class Inky(Ghost):
             blinky_pos_y (Optional[int]): Blinky's current vertical grid
                 coordinate.
         """
+        if self.previous_mode != self.mode:
+            if not self._finish_current_cell():
+                return
+
         if pacman_dir is None or blinky_pos_x is None or blinky_pos_y is None:
             return
 
@@ -746,6 +790,10 @@ class Pinky(Ghost):
             pacman_dir (Optional[Directions]): Pac-Man's current direction,
                 used to compute the ambush target position.
         """
+        if self.previous_mode != self.mode:
+            if not self._finish_current_cell():
+                return
+
         if self.path_to_pac_man is None:
             pac_ref_x, pac_ref_y = pac_grid_x, pac_grid_y
             if pacman_dir == Directions.UP:

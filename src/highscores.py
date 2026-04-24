@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Dict
 
 
 class HighScoreManager:
@@ -56,7 +57,7 @@ class HighScoreManager:
                 highscores_report = {}
 
     @classmethod
-    def get_highscore_report(cls, file: str) -> None:
+    def get_highscore_report(cls, file: str) -> Dict[str, str]:
         """
         Renders the high score leaderboard onto the given surface.
 
@@ -84,8 +85,7 @@ class HighScoreManager:
                 return {
                     key: value
                     for key, value in new_scores_report.items()
-                    if str(key).isalnum and value > 0
-                    if len(key) <= 10
+                    if str(key).isalnum() and value > 0 and len(key) <= 10
                 }
         except Exception:
             return {}
