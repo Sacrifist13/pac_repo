@@ -57,7 +57,7 @@ class HighScoreManager:
                 highscores_report = {}
 
     @classmethod
-    def get_highscore_report(cls, file: str) -> Dict[str, str]:
+    def get_highscore_report(cls, file: str) -> Dict[str, int]:
         """
         Renders the high score leaderboard onto the given surface.
 
@@ -74,9 +74,15 @@ class HighScoreManager:
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 highscores_report = json.load(f)
+                score_report = {
+                    key: value
+                    for key, value in highscores_report.items()
+                    if isinstance(value, int)
+                }
+
                 new_scores_report = dict(
                     sorted(
-                        highscores_report.items(),
+                        score_report.items(),
                         key=lambda item: item[1],
                         reverse=True,
                     )[:10]
@@ -85,10 +91,10 @@ class HighScoreManager:
                     key: value
                     for key, value in new_scores_report.items()
                     if isinstance(value, int)
-                    and str(key).isalnum()
-                    and value >= 0
-                    and value <= 9999999
-                    and len(key) <= 10
+                    if str(key).isalnum()
+                    if value >= 0
+                    if value <= 9999999
+                    if len(key) <= 10
                 }
 
             with open(file_path, "w", encoding="utf-8") as f:
