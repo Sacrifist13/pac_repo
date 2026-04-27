@@ -843,7 +843,7 @@ class GameEngine:
                         1 + self.ghosts_eat
                     )
                     self.score = (
-                        self.score_eating + self.score_eating
+                        self.score + self.score_eating
                         if self.score + self.score_eating <= self.MAX_SCORE
                         else self.MAX_SCORE
                     )
