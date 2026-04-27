@@ -38,5 +38,5 @@ package: install
 
 lint:
 	@echo "$(BOLD)🔎 Running static code analysis (src only + silent imports)...$(RESET)"
-	flake8 --exclude=.venv,llm_sdk/__init__.py
+	flake8 --exclude=.venv
 	mypy . --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
