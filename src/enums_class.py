@@ -56,11 +56,12 @@ class Mode(Enum):
 
     This enum dictates how entities interact with one another. For ghosts,
     it determines if they are hunting (NORMAL), frightened (SCARED), or
-    returning to base (EAT). For Pac-Man, it manages states like
-    INVINCIBLE after a respawn.
+    returning to base (EAT) and random (RANDOM). For Pac-Man, it manages
+    states like INVINCIBLE after a respawn.
     """
 
     NORMAL = auto()
     EAT = auto()
     INVINCIBLE = auto()
     SCARED = auto()
+    RANDOM = auto()

@@ -81,11 +81,22 @@ class HighScoreManager:
                         reverse=True,
                     )[:10]
                 )
-
-                return {
+                highscore_clean = {
                     key: value
                     for key, value in new_scores_report.items()
                     if str(key).isalnum() and value > 0 and len(key) <= 10
                 }
+
+            with open(file_path, "w", encoding="utf-8") as f:
+
+                json.dump(highscore_clean, f, indent=4)
+
+                return highscore_clean
+
         except Exception:
-            return {}
+            try:
+                with open(file_path, "w", encoding="utf-8") as f:
+                    json.dump({}, f, indent=4)
+                    return {}
+            except Exception:
+                return {}

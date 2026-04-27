@@ -150,6 +150,7 @@ class Ghost(Entity):
         self.eaten_img = eaten_img
         self.path_to_start: Optional[List[Tuple[int, int]]] = None
         self.previous_mode = Mode.NORMAL
+        self.path_to_pac_man: Optional[List[Tuple[int, int]]] = None
 
     def _calculate_f(
         self, target_grid_x: int, target_grid_y: int, x: int, y: int, g: int
@@ -507,7 +508,6 @@ class Blinky(Ghost):
         super().__init__(
             name, grid_x, grid_y, speed, cell_size, img, scared_img, eaten_img
         )
-        self.path_to_pac_man: Optional[List[Tuple[int, int]]] = None
 
     def move(
         self, map: List[List[List[int]]], pac_grid_x: int, pac_grid_y: int
@@ -630,7 +630,6 @@ class Inky(Ghost):
         super().__init__(
             name, grid_x, grid_y, speed, cell_size, img, scared_img, eaten_img
         )
-        self.path_to_pac_man: Optional[List[Tuple[int, int]]] = None
 
     def move(
         self,
@@ -767,7 +766,6 @@ class Pinky(Ghost):
         super().__init__(
             name, grid_x, grid_y, speed, cell_size, img, scared_img, eaten_img
         )
-        self.path_to_pac_man: Optional[List[Tuple[int, int]]] = None
 
     def move(
         self,
