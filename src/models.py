@@ -59,16 +59,6 @@ class GameConfig(BaseModel):
             ("level_max_time", 90),
         ]
 
-        valid_field = [
-            "points_per_pacgum",
-            "points_per_super_pacgum",
-            "points_per_ghost",
-            "seed",
-            "level_max_time",
-            "lives",
-            "highscore_filename"
-        ]
-
         errors = []
 
         lives = data.get("lives")
@@ -103,13 +93,6 @@ class GameConfig(BaseModel):
                 ". Clamped to 'highscores.json'."
             )
             data["highscore_filename"] = "highscores.json"
-
-        for parameter in data.keys():
-            if parameter not in valid_field:
-                errors.append(
-                    f"{RED}{BOLD}  * {RESET}"
-                    f"{YELLOW}{BOLD}Invalid parameter{RESET} : {parameter}"
-                )
 
         if errors:
             print(f"\n{RED}{BOLD}[=== CONFIGURATION FILE ERROR ===]{RESET}")

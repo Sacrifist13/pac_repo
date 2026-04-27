@@ -32,7 +32,7 @@ python3 pac-man.py config.json
 
 ---
 
-## III. Resources & AI Usage
+## III. Resources
 
 ### References
 * **Python Documentation**: Official 3.10+ guides for type hinting and context managers.
@@ -54,9 +54,10 @@ The game is highly customizable via a JSON configuration file. Unknown keys are 
 | Key | Description | Default Example |
 | :--- | :--- | :--- |
 | `highscore_filename` | Path to the highscore storage file. | `"highscores.json"` |
-| `level` | Array defining parameters for multiple levels. | `[{"width": 20, "height": 20}]` |
 | `lives` | Number of starting lives. | `3` |
 | `points_per_pacgum` | Score awarded for small pellets. | `10` |
+| `points_per_super_pacgum` | Score awarded for small pellets. | `50` |
+| `points_per_ghost` | Score awarded for small pellets. | `200` |
 | `seed` | RNG seed for the first level maze. | `42` |
 | `level_max_time` | Time limit per level in seconds. | `90` |
 
