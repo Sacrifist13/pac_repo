@@ -265,13 +265,17 @@ class Ghost(Entity):
         Returns:
             bool: True if the starting position has been reached.
         """
+        if self.previous_mode != self.mode:
+            if not self._finish_current_cell():
+                return False
+
         if self.path_to_start is None:
             self.path_to_start = self._find_fastest_way_to(
                 map, self.starting_x, self.starting_y
             )
 
             if not self.path_to_start:
-                return True
+                return False
 
             self.target_y, self.target_x = (
                 self.path_to_start[-1][0] * self.cell_size,
@@ -283,6 +287,8 @@ class Ghost(Entity):
             and self.pixel_y == self.starting_y * self.cell_size
         ):
             self.path_to_start = None
+            self.grid_x = self.starting_x
+            self.grid_y = self.starting_y
             return True
 
         directions = {
@@ -331,10 +337,6 @@ class Ghost(Entity):
                 return
 
         if self.pixel_x == self.target_x and self.pixel_y == self.target_y:
-
-            if self.previous_mode != self.mode:
-                self.previous_mode = self.mode
-                return
             self.moving = False
 
             directions = list(Directions)
@@ -448,7 +450,7 @@ class Ghost(Entity):
 
                 current_img = self.scared_img[i]
             else:
-                if playing_state == PlayingState.POWER:
+                if playing_state == PlayingState.POWER and self.speed == 0:
                     self.j += 1
                     if (self.j // 8) % 2:
                         return

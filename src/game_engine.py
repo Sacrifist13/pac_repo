@@ -649,14 +649,24 @@ class GameEngine:
         for ghost in self.ghosts.values():
             if ghost.mode == Mode.EAT:
                 if ghost.move_to_start_pos(self.map):
-                    ghost.mode = Mode.NORMAL
                     if (
-                        not self.freeze_cheat
-                        and ghost.name not in self.ghost_eat
+                        ghost.name not in self.ghost_eat
+                        and self.playing_state == PlayingState.POWER
                     ):
-                        ghost.speed = 2
+                        ghost.mode = Mode.SCARED
+                        if not self.freeze_cheat:
+                            ghost.speed = 1
+                        else:
+                            ghost.speed = 0
                     else:
-                        ghost.speed = 0
+                        ghost.mode = Mode.NORMAL
+                        if (
+                            not self.freeze_cheat
+                            and ghost.name not in self.ghost_eat
+                        ):
+                            ghost.speed = 2
+                        else:
+                            ghost.speed = 0
             elif (
                 self.playing_state == PlayingState.POWER
                 or self.pac_man.mode == Mode.INVINCIBLE
@@ -800,7 +810,7 @@ class GameEngine:
             )
             if pac_rect.colliderect(ghost_rect):
                 if (
-                    ghost.mode == Mode.NORMAL
+                    (ghost.mode == Mode.NORMAL or ghost.mode == Mode.RANDOM)
                     and self.pac_man.mode != Mode.INVINCIBLE
                     and self.playing_state != PlayingState.POWER
                 ):
@@ -811,9 +821,9 @@ class GameEngine:
                     self.lives -= 1
                     self.pac_man.mode = Mode.INVINCIBLE
 
-                    for ghost in self.ghosts.values():
-                        if ghost.mode != Mode.EAT:
-                            ghost.mode = Mode.RANDOM
+                    for g in self.ghosts.values():
+                        if g.mode != Mode.EAT:
+                            g.mode = Mode.RANDOM
 
                 elif (
                     ghost.mode == Mode.SCARED
@@ -2608,6 +2618,7 @@ class GameEngine:
                                 ghost.mode = Mode.SCARED
                                 if not self.freeze_cheat:
                                     ghost.speed = 1
+                                self.ghosts_eat = 0
 
                     elif event.key == pygame.K_f:
                         if not self.freeze_cheat:
@@ -2631,12 +2642,12 @@ class GameEngine:
                             for ghost in self.ghosts.values():
                                 if (
                                     self.playing_state == PlayingState.POWER
-                                    and ghost.mode != Mode.EAT
+                                    and ghost.mode == Mode.SCARED
                                 ):
                                     ghost.speed = 1
                                 elif ghost.mode == Mode.EAT:
                                     ghost.speed = 4
-                                else:
+                                elif ghost.name not in self.ghost_eat:
                                     ghost.speed = 2
                             self.level_starting_time = (
                                 pygame.time.get_ticks()
