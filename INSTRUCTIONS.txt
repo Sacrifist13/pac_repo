@@ -24,3 +24,8 @@
 
 ## OPTIONS AND CONFIGURATION
 * To modify the game settings (starting lives, time limit per level, etc.), please edit the values inside the `config.json` file.
+
+## Itch.io
+
+* Project URL   : https://sacrifist.itch.io/pac-man
+* mdp           : 1234
