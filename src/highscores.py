@@ -84,7 +84,11 @@ class HighScoreManager:
                 highscore_clean = {
                     key: value
                     for key, value in new_scores_report.items()
-                    if str(key).isalnum() and value > 0 and len(key) <= 10
+                    if isinstance(value, int)
+                    and str(key).isalnum()
+                    and value >= 0
+                    and value <= 9999999
+                    and len(key) <= 10
                 }
 
             with open(file_path, "w", encoding="utf-8") as f:
@@ -93,7 +97,8 @@ class HighScoreManager:
 
                 return highscore_clean
 
-        except Exception:
+        except Exception as e:
+            print(e)
             try:
                 with open(file_path, "w", encoding="utf-8") as f:
                     json.dump({}, f, indent=4)

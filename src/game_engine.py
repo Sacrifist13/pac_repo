@@ -23,6 +23,7 @@ class GameEngine:
     NEON_PURPLE = (191, 0, 255)
     NEON_RED = (255, 7, 58)
     NEON_GREEN = (57, 255, 20)
+    MAX_SCORE = 9999999
 
     def __init__(self) -> None:
         """
@@ -841,7 +842,11 @@ class GameEngine:
                     self.score_eating = self.config.points_per_ghost * (
                         1 + self.ghosts_eat
                     )
-                    self.score += self.score_eating
+                    self.score = (
+                        self.score_eating + self.score_eating
+                        if self.score + self.score_eating <= self.MAX_SCORE
+                        else self.MAX_SCORE
+                    )
                     self.ghosts_eat += 1
                     self.time_score_eating = pygame.time.get_ticks()
                     self.score_eating_coord = (
@@ -1656,7 +1661,12 @@ class GameEngine:
                             ghost.mode = Mode.NORMAL
 
             if self._eat_pac_gums():
-                self.score += self.config.points_per_pacgum
+                self.score = (
+                    self.score + self.config.points_per_pacgum
+                    if self.score + self.config.points_per_pacgum
+                    <= self.MAX_SCORE
+                    else self.MAX_SCORE
+                )
 
                 if len(self.pac_gums_coord) % 2:
                     self.assets_manager.play_sound(
@@ -1668,7 +1678,12 @@ class GameEngine:
                     )
 
             if self._eat_super_pac_gums():
-                self.score += self.config.points_per_super_pacgum
+                self.score = (
+                    self.score + self.config.points_per_super_pacgum
+                    if self.score + self.config.points_per_super_pacgum
+                    <= self.MAX_SCORE
+                    else self.MAX_SCORE
+                )
 
                 self.playing_state = PlayingState.POWER
                 self.music_load = False
